@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Formulaire Audit 4G/5G — IPKONEKT / Bouygues Telecom</title>
+    <script>
+        function loadWithFallback(localSrc, fallbackSrc, globalCheck) {
+            return new Promise((resolve) => {
+                const tryLoad = (src, isFallback) => {
+                    const s = document.createElement("script");
+                    s.src = src;
+                    s.onload = () => {
+                        if (typeof window[globalCheck] !== "undefined") resolve(true);
+                        else if (!isFallback) tryLoad(fallbackSrc, true);
+                        else resolve(false);
+                    };
+                    s.onerror = () => {
+                        if (!isFallback) tryLoad(fallbackSrc, true);
+                        else resolve(false);
+                    };
+                    document.head.appendChild(s);
+                };
+                tryLoad(localSrc, false);
+            });
+        }
+        window.__libsLoaded = Promise.all([
+            loadWithFallback("docx.umd.js", "https://unpkg.com/docx@8.5.0/build/index.umd.js", "docx"),
+            loadWithFallback("FileSaver.min.js", "https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js", "saveAs")
+        ]);
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            background: #f0f4f8;
+            color: #222;
+        }
+        header {
+            background: linear-gradient(135deg, #1f4e79 0%, #2e75b6 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 20px auto;
+            padding: 0 20px 60px 20px;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        }
+        .section h2 {
+            color: #1f4e79;
+            border-bottom: 2px solid #2e75b6;
+            padding-bottom: 8px;
+            margin-top: 0;
+            font-size: 1.2rem;
+        }
+        .section h3 {
+            color: #2e75b6;
+            font-size: 1rem;
+            font-style: italic;
+            margin-top: 20px;
+        }
+        .field-row {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+        .field-row.full {
+            grid-template-columns: 1fr;
+        }
+        .field-row label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="time"],
+        input[type="number"],
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #2e75b6;
+            box-shadow: 0 0 0 2px rgba(46, 117, 182, 0.2);
+        }
+        textarea {
+            min-height: 70px;
+            resize: vertical;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: normal;
+            cursor: pointer;
+            padding: 6px 10px;
+            background: #f8fafc;
+            border: 1px solid #e0e6ed;
+            border-radius: 4px;
+            font-size: 0.88rem;
+        }
+        .checkbox-group label:hover {
+            background: #eef4fa;
+        }
+        .checkbox-group input[type="checkbox"],
+        .checkbox-group input[type="radio"] {
+            margin: 0;
+            cursor: pointer;
+        }
+        .photo-upload {
+            border: 2px dashed #c0d0e0;
+            border-radius: 6px;
+            padding: 12px;
+            background: #fafcfe;
+            margin-bottom: 10px;
+        }
+        .photo-upload-label {
+            font-weight: 600;
+            color: #1f4e79;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .photo-preview {
+            margin-top: 8px;
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            display: none;
+        }
+        .photo-preview.shown {
+            display: block;
+        }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 700px) {
+            .photo-grid {
+                grid-template-columns: 1fr !important;
+            }
+            .field-row {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        .actions {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 15px 20px;
+            border-top: 2px solid #2e75b6;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            z-index: 10;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            touch-action: manipulation;
+        }
+        .btn-primary {
+            background: #2e75b6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1f4e79;
+        }
+        .btn-secondary {
+            background: #e6e6e6;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #ccc;
+        }
+        .info-box {
+            background: #fff8e6;
+            border-left: 4px solid #f0ad4e;
+            padding: 10px 15px;
+            margin: 12px 0;
+            border-radius: 4px;
+            font-size: 0.88rem;
+        }
+        .clear-photo {
+            background: #d9534f;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 4px;
+            touch-action: manipulation;
+        }
+        .clear-photo:hover {
+            background: #c9302c;
+        }
+        .annotate-btn {
+            background: #5cb85c;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 4px;
+            font-weight: 600;
+            touch-action: manipulation;
+        }
+        .annotate-btn:hover {
+            background: #4cae4c;
+        }
+        .annotate-btn:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+        .photo-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .status.loading {
+            background: #d9edf7;
+            color: #31708f;
+        }
+        .status.success {
+            background: #dff0d8;
+            color: #3c763d;
+        }
+        .status.error {
+            background: #f2dede;
+            color: #a94442;
+        }
+        /* ---- Editor overlay ---- */
+        .editor-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .editor-overlay.shown {
+            display: flex;
+        }
+        .editor-modal {
+            background: #f0f4f8;
+            border-radius: 8px;
+            width: min(95vw, 1200px);
+            height: min(95vh, 850px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .editor-header {
+            background: #1f4e79;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .editor-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        .editor-close {
+            background: transparent;
+            border: 1px solid white;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            touch-action: manipulation;
+        }
+        .editor-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .editor-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .editor-toolbar {
+            width: 220px;
+            background: #fff;
+            border-right: 1px solid #ddd;
+            padding: 12px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .editor-toolbar h3 {
+            margin: 0 0 8px 0;
+            font-size: 0.85rem;
+            color: #1f4e79;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .editor-toolbar .tool-group {
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid #d0dae5;
+            padding: 8px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #1f4e79;
+            text-align: left;
+            font-weight: 600;
+            touch-action: manipulation;
+        }
+        .tool-btn:hover {
+            background: #eef4fa;
+            border-color: #2e75b6;
+        }
+        .tool-btn img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+        }
+        .editor-canvas-wrap {
+            flex: 1;
+            position: relative;
+            background: #cfd8e3;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .editor-stage {
+            position: relative;
+            background: #fff;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+            transform-origin: center;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .editor-stage img.bg-photo {
+            display: block;
+            max-width: 100%;
+            user-select: none;
+            pointer-events: none;
+            width: 100%;
+            height: auto;
+        }
+        .editor-element {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .editor-element.selected {
+            outline: 2px dashed #2e75b6;
+            outline-offset: 2px;
+        }
+        .editor-element img {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+            display: block;
+        }
+        .editor-element.text-element {
+            padding: 2px 6px;
+            white-space: nowrap;
+            line-height: 1;
+        }
+        .editor-element.measure-point {
+            width: 0;
+            height: 0;
+            pointer-events: none;
+        }
+        .editor-element.measure-point .point-label {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            border: 1px solid #666;
+            pointer-events: none;
+            white-space: nowrap;
+            transform: translate(-50%, -150%);
+        }
+        .handle {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border: 2px solid #2e75b6;
+            border-radius: 50%;
+            z-index: 10;
+            touch-action: manipulation;
+        }
+        .handle.resize {
+            bottom: -7px;
+            right: -7px;
+            cursor: se-resize;
+        }
+        .handle.rotate {
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: grab;
+            background: #f0ad4e;
+            border-color: #c77700;
+        }
+        .handle.delete {
+            top: -7px;
+            right: -7px;
+            background: #d9534f;
+            border-color: #a82c2c;
+            color: #fff;
+            font-size: 12px;
+            line-height: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .editor-footer {
+            background: #fff;
+            padding: 12px 20px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .editor-footer .hint {
+            color: #777;
+            font-size: 0.82rem;
+            font-style: italic;
+        }
+        .text-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .text-controls input[type="text"] {
+            font-size: 0.85rem;
+            padding: 6px;
+        }
+        .text-controls .row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .text-controls label {
+            font-size: 0.78rem;
+            color: #555;
+        }
+        .text-controls select,
+        .text-controls input[type="color"],
+        .text-controls input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            font-size: 0.82rem;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .text-controls input[type="color"] {
+            padding: 1px;
+            height: 28px;
+        }
+        .style-preview {
+            padding: 6px 8px;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+            text-align: center;
+            margin-top: 4px;
+            min-height: 30px;
+        }
+        .swatch-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 3px;
+        }
+        .swatch {
+            height: 22px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+        .swatch:hover {
+            transform: scale(1.1);
+        }
+        .arrow-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .arrow-controls .row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .arrow-controls label {
+            font-size: 0.78rem;
+            color: #555;
+            flex: 1;
+        }
+        .arrow-controls input[type="number"],
+        .arrow-controls input[type="color"] {
+            width: 100%;
+            padding: 4px;
+            font-size: 0.82rem;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .arrow-controls input[type="color"] {
+            padding: 1px;
+            height: 28px;
+        }
+        .selection-panel {
+            display: none;
+            background: #fff8e6;
+            border: 1px solid #f0ad4e;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 12px;
+        }
+        .selection-panel h3 {
+            margin: 0 0 6px 0 !important;
+            color: #b8860b !important;
+        }
+        .flip-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        .flip-btn {
+            flex: 1;
+            padding: 8px 6px;
+            background: #fff;
+            border: 1px solid #d0dae5;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #1f4e79;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            touch-action: manipulation;
+        }
+        .flip-btn:hover {
+            background: #eef4fa;
+            border-color: #2e75b6;
+        }
+        .flip-btn.active {
+            background: #2e75b6;
+            color: #fff;
+            border-color: #1f4e79;
+        }
+        .flip-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+        .handle.arrow-end {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            cursor: move;
+        }
+        .handle.arrow-delete {
+            cursor: pointer;
+        }
+        .editor-element.arrow-element {
+            pointer-events: none;
+        }
+        .editor-element.arrow-element svg {
+            pointer-events: none;
+        }
+        .editor-element.arrow-element .handle {
+            pointer-events: auto;
+        }
+        .measure-point-label {
+            position: absolute;
+            transform: translate(-50%, -150%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            white-space: nowrap;
+            border: 1px solid #666;
+            pointer-events: none;
+        }
+        .color-dot {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+        @media (max-width: 700px) {
+            .editor-body {
+                flex-direction: column;
+            }
+            .editor-toolbar {
+                width: 100%;
+                max-height: 40%;
+                overflow-y: auto;
+                border-right: none;
+                border-bottom: 1px solid #ddd;
+                padding: 8px;
+            }
+            .editor-canvas-wrap {
+                height: 60%;
+                min-height: 300px;
+            }
+            .tool-btn {
+                padding: 10px 8px;
+                font-size: 0.9rem;
+            }
+            .tool-btn img {
+                width: 32px;
+                height: 32px;
+            }
+            .handle {
+                width: 22px;
+                height: 22px;
+                border-width: 3px;
+            }
+            .handle.resize {
+                bottom: -11px;
+                right: -11px;
+            }
+            .handle.rotate {
+                top: -28px;
+                width: 20px;
+                height: 20px;
+            }
+            .handle.delete {
+                top: -11px;
+                right: -11px;
+                width: 22px;
+                height: 22px;
+                font-size: 14px;
+                line-height: 16px;
+            }
+            .handle.arrow-end {
+                width: 22px;
+                height: 22px;
+            }
+            .selection-panel .flip-btn {
+                padding: 10px 6px;
+                font-size: 0.9rem;
+            }
+            .editor-element.text-element {
+                white-space: normal;
+                word-break: break-word;
+                max-width: 90%;
+            }
+        }
+        .evacuation-upload-area {
+            border: 2px dashed #2e75b6;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            background: #f8fafc;
+            cursor: pointer;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #2e75b6;
+        }
+        .evacuation-upload-area:hover {
+            background: #eef4fa;
+        }
+        .evacuation-upload-area input[type="file"] {
+            display: none;
+        }
+        .evac-stage-wrap {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+        }
+        .evac-stage-wrap img {
+            max-width: 100%;
+            display: block;
+        }
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .ref-table th,
+        .ref-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        .ref-table th {
+            background: #2e75b6;
+            color: white;
+        }
+        .ref-table td {
+            background: #fafafa;
+        }
+        .radio-quality-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            color: white;
+            font-size: 0.8rem;
+        }
+        .badge-green {
+            background: #28a745;
+        }
+        .badge-blue {
+            background: #007bff;
+        }
+        .badge-orange {
+            background: #fd7e14;
+        }
+        .badge-red {
+            background: #dc3545;
+        }
+        .badge-dark {
+            background: #6c757d;
+        }
+        .auto-analysis-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+        }
+        .small-input {
+            width: 80px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📋 Formulaire d'Audit 4G/5G — IPKONEKT / Bouygues Telecom</h1>
+        <p>Renseignez les informations ci-dessous, puis générez le rapport Word.</p>
+    </header>
+
+    <div class="container">
+        <!-- ===== EN-TÊTE / RÉFÉRENCE ===== -->
+        <div class="section">
+            <h2>En-tête du rapport</h2>
+            <div class="field-row">
+                <label>Référence commande</label>
+                <input type="text" id="ref_commande">
+            </div>
+            <div class="field-row">
+                <label>Auditeur / Intervenant</label>
+                <input type="text" id="auditeur" placeholder="IPKONEKT / Nom">
+            </div>
+            <div class="field-row">
+                <label>Date d'audit</label>
+                <input type="date" id="date_audit">
+            </div>
+        </div>
+
+        <!-- ===== SECTION 1 - INFOS ADMINISTRATIVES ===== -->
+        <div class="section">
+            <h2>1. Informations administratives du client</h2>
+            <div class="field-row">
+                <label>Raison sociale du site audité</label>
+                <input type="text" id="raison_sociale">
+            </div>
+            <div class="field-row">
+                <label>Adresse</label>
+                <input type="text" id="adresse">
+            </div>
+            <div class="field-row">
+                <label>Code postal</label>
+                <input type="text" id="code_postal">
+            </div>
+            <div class="field-row">
+                <label>Ville</label>
+                <input type="text" id="ville">
+            </div>
+            <div class="field-row">
+                <label>Horaire d'ouverture du site</label>
+                <input type="text" id="horaire">
+            </div>
+            <div class="field-row">
+                <label>Procédure d'accès</label>
+                <input type="text" id="procedure_acces">
+            </div>
+            <div class="field-row">
+                <label>Téléphone du site</label>
+                <input type="text" id="tel_site">
+            </div>
+            <div class="field-row">
+                <label>Nom du contact client sur site</label>
+                <input type="text" id="contact_nom">
+            </div>
+            <div class="field-row">
+                <label>Fonction</label>
+                <input type="text" id="contact_fonction">
+            </div>
+            <div class="field-row">
+                <label>Téléphone</label>
+                <input type="text" id="contact_tel">
+            </div>
+            <div class="field-row">
+                <label>Mail</label>
+                <input type="text" id="contact_mail">
+            </div>
+        </div>
+
+        <!-- ===== SECTION 2 - INFOS TECHNIQUES CLIENT ===== -->
+        <div class="section">
+            <h2>2. Informations techniques client</h2>
+            <div class="field-row">
+                <label>Le bâtiment est-il classé ?</label>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="classe" value="Oui"> Oui</label>
+                    <label><input type="radio" name="classe" value="Non"> Non</label>
+                </div>
+            </div>
+            <div class="field-row">
+                <label>Localisation de la baie informatique</label>
+                <input type="text" id="localisation_baie">
+            </div>
+            <div class="field-row">
+                <label>Nombre de prises électriques disponibles</label>
+                <input type="number" id="nb_prises" min="0">
+            </div>
+            <div class="field-row">
+                <label>Présence d'une prise RJ45 à l'emplacement optimal</label>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="rj45" value="Oui"> Oui</label>
+                    <label><input type="radio" name="rj45" value="Non"> Non</label>
+                </div>
+            </div>
+            <div class="field-row">
+                <label>Si non, devis desserte à prévoir</label>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="devis_desserte" value="Oui"> Oui</label>
+                    <label><input type="radio" name="devis_desserte" value="Non"> Non</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SECTION 3 - MESURES RADIO ===== -->
+        <div class="section">
+            <h2>3. Mesures radio 4G/5G</h2>
+            <div class="info-box">
+                Les tests sont réalisés avec l'application <b>Network Cell Info Lite</b>.<br>
+                3 points de mesures sont à réaliser (3 en 4G et 3 en 5G) :<br>
+                - Emplacement souhaité par le client<br>
+                - Emplacement préconisé par le technicien<br>
+                - À l'extérieur du bâtiment
+            </div>
+
+            <!-- Tableaux de référence -->
+            <h3>Échelle de référence</h3>
+            <table class="ref-table">
+                <thead>
+                    <tr><th>RSRP (dBm)</th><th>Qualité</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>≥ -75</td><td><span class="radio-quality-badge badge-green">Très bon</span></td></tr>
+                    <tr><td>-76 à -90</td><td><span class="radio-quality-badge badge-blue">Bon</span></td></tr>
+                    <tr><td>-91 à -105</td><td><span class="radio-quality-badge badge-orange">Moyen</span></td></tr>
+                    <tr><td>-106 à -115</td><td><span class="radio-quality-badge badge-red">Faible</span></td></tr>
+                    <tr><td>&lt; -115</td><td><span class="radio-quality-badge badge-dark">Très mauvais</span></td></tr>
+                </tbody>
+            </table>
+            <table class="ref-table">
+                <thead>
+                    <tr><th>RSRQ (dB)</th><th>Qualité</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>-5 à -9</td><td><span class="radio-quality-badge badge-green">Très bon</span></td></tr>
+                    <tr><td>-10 à -12</td><td><span class="radio-quality-badge badge-orange">Moyen</span></td></tr>
+                    <tr><td>≤ -13</td><td><span class="radio-quality-badge badge-red">Mauvais</span></td></tr>
+                </tbody>
+            </table>
+            <table class="ref-table">
+                <thead>
+                    <tr><th>SINR (dB)</th><th>Qualité</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>≥ 20</td><td><span class="radio-quality-badge badge-green">Excellent</span></td></tr>
+                    <tr><td>13 à 19</td><td><span class="radio-quality-badge badge-blue">Bon</span></td></tr>
+                    <tr><td>0 à 12</td><td><span class="radio-quality-badge badge-orange">Faible</span></td></tr>
+                    <tr><td>&lt; 0</td><td><span class="radio-quality-badge badge-red">Très mauvais</span></td></tr>
+                </tbody>
+            </table>
+
+            <!-- Points de mesure dynamiques -->
+            <div id="measurePointsContainer">
+                <div class="measure-point-group" data-point="1">
+                    <h3>Point 1 — Emplacement souhaité par le client</h3>
+                    <div class="field-row">
+                        <label>Lieu / Pièce</label>
+                        <input type="text" class="point-lieu" value="Local informatique">
+                    </div>
+                    <div class="photo-upload">
+                        <div class="photo-upload-label">
+                            📷 Photo du point 1
+                            <input type="file" accept="image/*" class="measure-photo-input" data-point="1">
+                            <button class="annotate-btn" data-annotate-measure="1" disabled>✏ Annoter</button>
+                            <button class="clear-photo" data-clear-measure="1">✕</button>
+                        </div>
+                        <img class="photo-preview" id="preview_measure_1">
+                    </div>
+                    <div class="field-row">
+                        <label>RSRP (dBm)</label>
+                        <input type="number" class="measure-rsrp" step="1" placeholder="-85">
+                    </div>
+                    <div class="field-row">
+                        <label>RSRQ (dB)</label>
+                        <input type="number" class="measure-rsrq" step="0.1" placeholder="-10">
+                    </div>
+                    <div class="field-row">
+                        <label>SINR (dB)</label>
+                        <input type="number" class="measure-sinr" step="0.1" placeholder="15">
+                    </div>
+                    <div class="field-row">
+                        <label>Débit descendant (Mbps)</label>
+                        <input type="number" class="measure-down" step="0.01" placeholder="50">
+                    </div>
+                    <div class="field-row">
+                        <label>Débit montant (Mbps)</label>
+                        <input type="number" class="measure-up" step="0.01" placeholder="10">
+                    </div>
+                    <div class="field-row">
+                        <label>Bande (ex: 20, 28, n78...)</label>
+                        <input type="text" class="measure-band" placeholder="20">
+                    </div>
+                    <div class="auto-analysis-box" data-analyze="1">
+                        <strong>Analyse automatique :</strong> <span class="analysis-result">En attente de données</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-secondary" id="addMeasurePointBtn" style="margin-top:10px;">➕ Ajouter un point de mesure</button>
+        </div>
+
+        <!-- ===== SECTION 4 - PLAN D'ÉVACUATION INTERACTIF ===== -->
+        <div class="section">
+            <h2>4. Plan d'évacuation</h2>
+            <div class="info-box">
+                Importez une photo du plan d'évacuation. Cliquez ensuite sur le bouton <b>"Ajouter un point de mesure"</b> pour placer un point sur le plan. Les points seront automatiquement colorés selon la qualité radio globale de chaque point.
+            </div>
+            <div class="evacuation-upload-area" id="evacUploadArea">
+                <span style="font-size:2rem;">📷</span>
+                <p>Cliquez pour importer une photo du plan d'évacuation</p>
+                <input type="file" accept="image/*" id="evacFileInput">
+            </div>
+            <div id="evacStageContainer" style="display:none; position:relative; margin-top:10px; text-align:center;">
+                <div class="evac-stage-wrap" id="evacStageWrap">
+                    <img id="evacBgImage" alt="Plan d'évacuation">
+                </div>
+            </div>
+            <div style="margin-top:10px;">
+                <button class="btn-secondary" id="addEvacPointBtn">➕ Ajouter un point de mesure sur le plan</button>
+            </div>
+        </div>
+
+        <!-- ===== SECTION 5 - CHEMINEMENT / INSTALLATION ===== -->
+        <div class="section">
+            <h2>5. Cheminement câble / Installation</h2>
+            <div class="info-box">
+                Ajoutez des photos du cheminement, de l'installation et des points de pénétration. Utilisez l'éditeur pour annoter (flèches, cercles, texte).
+            </div>
+            <div id="cheminementContainer">
+                <div class="cheminement-item">
+                    <div class="photo-upload">
+                        <div class="photo-upload-label">
+                            📷 Photo 1
+                            <input type="file" accept="image/*" class="cheminement-photo-input">
+                            <button class="annotate-btn" data-annotate-cheminement="0" disabled>✏ Annoter</button>
+                            <button class="clear-photo" data-clear-cheminement="0">✕</button>
+                        </div>
+                        <img class="photo-preview" id="preview_cheminement_0">
+                    </div>
+                    <div class="field-row">
+                        <label>Commentaire</label>
+                        <textarea class="cheminement-comment" rows="2" placeholder="Description du cheminement..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-secondary" id="addCheminementBtn">➕ Ajouter une photo de cheminement</button>
+        </div>
+
+        <!-- ===== SECTION 6 - SYNTHÈSE ===== -->
+        <div class="section">
+            <h2>6. Synthèse de l'intervention</h2>
+            <div class="field-row">
+                <label>Heure de début d'intervention</label>
+                <input type="time" id="heure_debut">
+            </div>
+            <div class="field-row">
+                <label>Heure de fin d'intervention</label>
+                <input type="time" id="heure_fin">
+            </div>
+            <div class="field-row">
+                <label>Durée totale à prévoir</label>
+                <input type="text" id="duree_totale" placeholder="ex: 4h30">
+            </div>
+            <div class="field-row">
+                <label>Nombre de techniciens</label>
+                <input type="number" id="nb_techniciens" min="1" max="10">
+            </div>
+            <div class="field-row">
+                <label>Nacelle à prévoir</label>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="nacelle_prevoir" value="Oui"> Oui</label>
+                    <label><input type="radio" name="nacelle_prevoir" value="Non"> Non</label>
+                </div>
+            </div>
+            <div class="field-row">
+                <label>Besoin d'une échelle</label>
+                <div class="checkbox-group">
+                    <label><input type="radio" name="echelle_prevoir" value="Oui"> Oui</label>
+                    <label><input type="radio" name="echelle_prevoir" value="Non"> Non</label>
+                </div>
+            </div>
+            <div class="field-row full">
+                <label>Observations / Réserves / Points à lever</label>
+                <textarea id="observations" style="min-height: 120px;"></textarea>
+            </div>
+            <div class="field-row">
+                <label>Nom du signataire</label>
+                <input type="text" id="signataire_nom">
+            </div>
+            <div class="field-row">
+                <label>Date de signature</label>
+                <input type="date" id="signataire_date">
+            </div>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <div class="actions">
+        <button class="btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+        <button class="btn-secondary" onclick="exportJSON()">⬇ Export JSON</button>
+        <button class="btn-secondary" onclick="document.getElementById('importJSONInput').click()">⬆ Import JSON</button>
+        <input type="file" id="importJSONInput" accept=".json" style="display:none" onchange="importJSON(event)">
+        <button class="btn-primary" onclick="generateDocument()">📄 Générer le rapport Word</button>
+    </div>
+
+    <!-- ===== ÉDITEUR D'ANNOTATION ===== -->
+    <div class="editor-overlay" id="editorOverlay">
+        <div class="editor-modal">
+            <div class="editor-header">
+                <h2>✏ Annoter la photo — <span id="editorTitle"></span></h2>
+                <button class="editor-close" onclick="closeEditor()">Fermer sans enregistrer</button>
+            </div>
+            <div class="editor-body">
+                <div class="editor-toolbar">
+                    <div class="selection-panel tool-group" id="selectionPanel">
+                        <h3>✎ Élément sélectionné</h3>
+                        <div id="selPanelImage">
+                            <div class="flip-buttons">
+                                <button class="flip-btn" id="flipHBtn" title="Retourner horizontalement">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/></svg> Miroir H
+                                </button>
+                                <button class="flip-btn" id="flipVBtn" title="Retourner verticalement">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7l4-4 4 4"/><path d="M8 17l4 4 4-4"/></svg> Miroir V
+                                </button>
+                            </div>
+                            <div class="small-help">Cliquez à nouveau pour annuler le retournement.</div>
+                        </div>
+                        <div id="selPanelArrow">
+                            <div class="row" style="display:flex; gap:6px; align-items:center;">
+                                <label style="flex:1; font-size:0.78rem; color:#555;">Couleur
+                                    <input type="color" id="selArrowColor" value="#FF0000" style="width:100%; padding:1px; height:28px; border:1px solid #ccc; border-radius:3px;">
+                                </label>
+                            </div>
+                            <div class="swatch-row sel-arrow-swatches" style="display:grid; grid-template-columns:repeat(6,1fr); gap:3px; margin-top:4px;">
+                                <div class="swatch sel-arrow-swatch" style="background:#FF0000" data-color="#FF0000"></div>
+                                <div class="swatch sel-arrow-swatch" style="background:#FFFFFF" data-color="#FFFFFF"></div>
+                                <div class="swatch sel-arrow-swatch" style="background:#FFFF00" data-color="#FFFF00"></div>
+                                <div class="swatch sel-arrow-swatch" style="background:#00B050" data-color="#00B050"></div>
+                                <div class="swatch sel-arrow-swatch" style="background:#0070C0" data-color="#0070C0"></div>
+                                <div class="swatch sel-arrow-swatch" style="background:#000000" data-color="#000000"></div>
+                            </div>
+                            <div class="row" style="display:flex; gap:6px; align-items:center; margin-top:6px;">
+                                <label style="flex:1; font-size:0.78rem; color:#555;">Épaisseur
+                                    <input type="number" id="selArrowThickness" min="2" max="40" value="6" style="width:100%; padding:4px; font-size:0.82rem; border:1px solid #ccc; border-radius:3px;">
+                                </label>
+                                <label style="flex:1; font-size:0.78rem; color:#555;">Taille pointe
+                                    <input type="number" id="selArrowHeadSize" min="8" max="80" value="18" style="width:100%; padding:4px; font-size:0.82rem; border:1px solid #ccc; border-radius:3px;">
+                                </label>
+                            </div>
+                            <div class="small-help">Tirez les poignées d'extrémité pour allonger / orienter la flèche.</div>
+                        </div>
+                    </div>
+
+                    <div class="tool-group">
+                        <h3>Outils d'annotation</h3>
+                        <button class="tool-btn" id="toolAddArrow">➡️ Ajouter une flèche</button>
+                        <button class="tool-btn" id="toolAddCircle">⭕ Ajouter un cercle</button>
+                        <button class="tool-btn" id="toolAddText">🅰️ Ajouter du texte</button>
+                        <button class="tool-btn" id="toolAddMeasurePoint">📍 Ajouter un point de mesure</button>
+                    </div>
+
+                    <div class="tool-group">
+                        <h3>Texte</h3>
+                        <div class="text-controls">
+                            <input type="text" id="textInput" placeholder="Tapez votre texte…">
+                            <div class="row">
+                                <label style="flex:1;">Police
+                                    <select id="textFont">
+                                        <option value="Arial Black, sans-serif">Arial Black</option>
+                                        <option value="Impact, sans-serif">Impact</option>
+                                        <option value="Georgia, serif">Georgia</option>
+                                        <option value="Arial, sans-serif">Arial</option>
+                                        <option value="Verdana, sans-serif">Verdana</option>
+                                    </select>
+                                </label>
+                                <label style="width:65px;">Taille
+                                    <input type="number" id="textSize" value="20" min="10" max="80">
+                                </label>
+                            </div>
+                            <div class="row">
+                                <label style="flex:1;">Couleur
+                                    <input type="color" id="textColor" value="#FF0000">
+                                </label>
+                                <label style="flex:1;">Contour
+                                    <input type="color" id="textStroke" value="#FFFFFF">
+                                </label>
+                            </div>
+                            <div class="row" style="gap:4px;">
+                                <label style="flex:1; display:flex; align-items:center; gap:4px; font-size:0.78rem;"><input type="checkbox" id="textBold" checked> Gras</label>
+                                <label style="flex:1; display:flex; align-items:center; gap:4px; font-size:0.78rem;"><input type="checkbox" id="textShadow" checked> Ombre</label>
+                            </div>
+                            <div class="swatch-row">
+                                <div class="swatch" style="background:#FF0000" data-color="#FF0000"></div>
+                                <div class="swatch" style="background:#FFFFFF" data-color="#FFFFFF"></div>
+                                <div class="swatch" style="background:#FFFF00" data-color="#FFFF00"></div>
+                                <div class="swatch" style="background:#00B050" data-color="#00B050"></div>
+                                <div class="swatch" style="background:#0070C0" data-color="#0070C0"></div>
+                                <div class="swatch" style="background:#000000" data-color="#000000"></div>
+                            </div>
+                            <div class="style-preview" id="textPreview">Aperçu</div>
+                            <button class="tool-btn" id="btnAddText" style="background:#2e75b6; color:white; border-color:#1f4e79; justify-content:center; margin-top:6px;">➕ Ajouter le texte</button>
+                        </div>
+                    </div>
+
+                    <div class="tool-group">
+                        <h3>Conseils</h3>
+                        <p style="font-size:0.78rem; color:#555; margin:4px 0;">
+                            • Glissez un élément pour le déplacer.<br>
+                            • Coin bleu (bas-droite) : redimensionner.<br>
+                            • Pastille orange (en haut) : pivoter.<br>
+                            • Pastille rouge : supprimer.<br>
+                            • Touche <b>Suppr</b> : supprime aussi.
+                        </p>
+                    </div>
+                </div>
+                <div class="editor-canvas-wrap" id="editorCanvasWrap">
+                    <div class="editor-stage" id="editorStage">
+                        <img class="bg-photo" id="editorBgPhoto" alt="Photo de fond">
+                    </div>
+                </div>
+            </div>
+            <div class="editor-footer">
+                <span class="hint">💡 Astuce : double-cliquez sur un texte pour le modifier.</span>
+                <div>
+                    <button class="btn-secondary" onclick="closeEditor()" style="padding:8px 16px;">Annuler</button>
+                    <button class="btn-primary" onclick="saveAnnotation()" style="padding:8px 16px;">✅ Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="logos.js"></script>
+    <script src="app.js"></script>
+
+</body>
+</html>
