@@ -1001,4 +1001,3 @@ window.saveAnnotation = function() {
 // Rendre l'objet Editor accessible globalement
 window.Editor = Editor;
 
-})(); // Fermeture finale du script
