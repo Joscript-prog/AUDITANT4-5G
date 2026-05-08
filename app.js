@@ -922,6 +922,22 @@ function b64ToUint8Array(b64) {
     return bytes;
 }
 
+
+// Exposition des fonctions de l'éditeur pour le HTML
+function closeEditor() {
+    if (window.Editor && typeof window.Editor.close === 'function') {
+        window.Editor.close();
+    }
+}
+
+function saveAnnotation() {
+    if (window.Editor && typeof window.Editor.save === 'function') {
+        window.Editor.save();
+    }
+}
+
+
+
 // Exposition des fonctions globales
 window.generateDocument = generateDocument;
 window.resetForm = resetForm;
