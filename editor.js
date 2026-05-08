@@ -978,3 +978,5 @@ function closeEditor() { Editor.close(); }
 function saveAnnotation() { Editor.save(); }
 
 document.addEventListener("DOMContentLoaded", Editor.init);
+window.Editor = Editor;
+})();
