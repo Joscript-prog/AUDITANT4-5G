@@ -973,10 +973,14 @@ const Editor = (function () {
   return { init, open, close, save };
 })();
 
-// Exposer les fonctions appelées depuis le HTML
-function closeEditor() { Editor.close(); }
-function saveAnnotation() { Editor.save(); }
+// Exposer les fonctions appelées depuis le HTML à l'objet window
+    window.closeEditor = function() { Editor.close(); };
+    window.saveAnnotation = function() { Editor.save(); };
 
-document.addEventListener("DOMContentLoaded", Editor.init);
-window.Editor = Editor;
-})();
+    // Initialiser l'éditeur au chargement du DOM
+    document.addEventListener("DOMContentLoaded", Editor.init);
+
+    // Rendre l'objet Editor globalement accessible pour app.js
+    window.Editor = Editor;
+
+})(); // Fermeture finale du script
