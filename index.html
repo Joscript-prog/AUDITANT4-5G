@@ -807,6 +807,323 @@
             width: 80px;
             display: inline-block;
         }
+
+        /* ============ NOUVEAUX COMPOSANTS (Style Starlink) ============ */
+
+        /* --- Matrice d'interprétation RSRP × SNR --- */
+        .quality-matrix {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 14px 0 18px;
+            font-size: 0.85rem;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .quality-matrix th,
+        .quality-matrix td {
+            padding: 10px 8px;
+            text-align: center;
+            border-bottom: 1px solid #eef2f7;
+        }
+        .quality-matrix thead th {
+            background: #f8fafc;
+            color: #2e75b6;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border-bottom: 2px solid #cfdce9;
+        }
+        .quality-matrix tbody th {
+            text-align: left;
+            background: #f8fafc;
+            color: #1f4e79;
+            font-weight: 600;
+            padding-left: 14px;
+            border-right: 1px solid #e6ecf2;
+            white-space: nowrap;
+        }
+        .quality-matrix tbody th em {
+            color: #6b7280;
+            font-weight: 400;
+        }
+        .q-pill {
+            display: inline-block;
+            padding: 5px 14px;
+            border-radius: 999px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.78rem;
+            min-width: 92px;
+            text-align: center;
+        }
+        .q-green  { background: #16a34a; }
+        .q-orange { background: #f59e0b; }
+        .q-gray   { background: #6b7280; }
+        .q-red    { background: #dc2626; }
+
+        .matrix-caption {
+            color: #6b7280;
+            font-size: 0.85rem;
+            margin: 4px 0 0;
+        }
+        .matrix-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #1f4e79;
+            font-weight: 600;
+            margin-top: 18px;
+            margin-bottom: 4px;
+            font-size: 1rem;
+        }
+        .matrix-title::before {
+            content: "📊";
+        }
+
+        /* --- Bloc d'un point de mesure --- */
+        .measure-point-group {
+            background: #fafcfe;
+            border: 1px solid #d8e2ec;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 14px;
+            position: relative;
+        }
+        .mp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e6ecf2;
+        }
+        .mp-header h4 {
+            margin: 0;
+            color: #1f4e79;
+            font-size: 1rem;
+        }
+        .btn-delete {
+            background: transparent;
+            border: 1px solid #f5b1b1;
+            color: #c53030;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-delete:hover {
+            background: #ffe5e5;
+        }
+        .mp-field {
+            width: 100%;
+            margin-bottom: 12px;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.92rem;
+        }
+        .mp-photos {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 700px) {
+            .mp-photos { grid-template-columns: 1fr; }
+        }
+        .mp-photo-block {
+            background: white;
+            border: 1px dashed #c0d0e0;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .mp-photo-label {
+            display: block;
+            font-weight: 600;
+            color: #1f4e79;
+            margin-bottom: 6px;
+            font-size: 0.88rem;
+        }
+        .mp-photo-block input[type="file"] {
+            margin-bottom: 6px;
+            font-size: 0.82rem;
+        }
+        .mp-photo-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 0.78rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .clear-btn:hover { background: #b02a37; }
+
+        /* --- Grille des mesures (RSRP / RSRQ / SNR / Down / Up / Bande) --- */
+        .mp-measures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e6ecf2;
+        }
+        @media (max-width: 700px) {
+            .mp-measures { grid-template-columns: 1fr 1fr; }
+        }
+        .mp-measure-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .mp-measure-cell label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        .mp-measure-cell label .unit {
+            font-weight: 400;
+            color: #6b7280;
+            font-size: 0.72rem;
+        }
+        .mp-measure-cell input {
+            padding: 7px 9px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 0.88rem;
+        }
+        .mp-measure-cell input:focus {
+            border-color: #2e75b6;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(46, 117, 182, 0.15);
+        }
+
+        /* --- Analyse colorée --- */
+        .mp-analysis {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e6ecf2;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 0.92rem;
+        }
+        .analysis-result {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* --- Cheminement --- */
+        .cheminement-item {
+            background: #fafcfe;
+            border: 1px solid #d8e2ec;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 12px;
+        }
+        .chem-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #1f4e79;
+            margin-bottom: 8px;
+        }
+        .cheminement-item input[type="file"] {
+            margin: 6px 0;
+            font-size: 0.85rem;
+        }
+        .cheminement-item .photo-preview {
+            margin-top: 8px;
+        }
+        .chem-actions {
+            display: flex;
+            gap: 6px;
+            margin: 6px 0 8px;
+        }
+        .cheminement-comment {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            margin-top: 6px;
+            resize: vertical;
+        }
+
+        /* --- Plan d'évacuation : points sur le plan --- */
+        .evac-stage-wrap {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+        }
+        .evac-point {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #dc2626;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            cursor: move;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+        }
+        .evac-pin {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            color: #1f4e79;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.78rem;
+            border: 1px solid #1f4e79;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* --- Photo de façade (haut de page) --- */
+        .facade-upload {
+            border: 2px dashed #c0d0e0;
+            border-radius: 6px;
+            padding: 14px;
+            background: #fafcfe;
+            margin-bottom: 16px;
+        }
+        .facade-upload .photo-upload-label {
+            margin-bottom: 8px;
+        }
+        .facade-upload .photo-preview {
+            max-width: 320px;
+        }
+        .facade-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -923,55 +1240,64 @@
             <div class="info-box">
                 Les tests sont réalisés avec l'application <b>Network Cell Info Lite</b>.<br>
                 3 points de mesures sont à réaliser (3 en 4G et 3 en 5G) :<br>
-                - Emplacement souhaité par le client<br>
-                - Emplacement préconisé par le technicien<br>
-                - À l'extérieur du bâtiment
+                • Emplacement souhaité par le client<br>
+                • Emplacement préconisé par le technicien<br>
+                • À l'extérieur du bâtiment
             </div>
 
-            <!-- Tableaux de référence -->
-            <h3>Échelle de référence</h3>
-            <table class="ref-table">
+            <!-- Matrice d'interprétation officielle -->
+            <div class="matrix-title">Matrice d'interprétation des résultats</div>
+            <p class="matrix-caption">Grille de lecture officielle appliquée automatiquement dans le rapport.</p>
+            <table class="quality-matrix">
                 <thead>
-                    <tr><th>RSRP (dBm)</th><th>Qualité</th></tr>
+                    <tr>
+                        <th style="text-align:left; padding-left:14px;">RSRP <span style="color:#9ca3af; font-weight:400;">(Puissance)</span></th>
+                        <th>SNR &gt; 15</th>
+                        <th>SNR 5 à 15</th>
+                        <th>SNR 0 à 5</th>
+                        <th>SNR &lt; 0</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    <tr><td>≥ -75</td><td><span class="radio-quality-badge badge-green">Très bon</span></td></tr>
-                    <tr><td>-76 à -90</td><td><span class="radio-quality-badge badge-blue">Bon</span></td></tr>
-                    <tr><td>-91 à -105</td><td><span class="radio-quality-badge badge-orange">Moyen</span></td></tr>
-                    <tr><td>-106 à -115</td><td><span class="radio-quality-badge badge-red">Faible</span></td></tr>
-                    <tr><td>&lt; -115</td><td><span class="radio-quality-badge badge-dark">Très mauvais</span></td></tr>
-                </tbody>
-            </table>
-            <table class="ref-table">
-                <thead>
-                    <tr><th>RSRQ (dB)</th><th>Qualité</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>-5 à -9</td><td><span class="radio-quality-badge badge-green">Très bon</span></td></tr>
-                    <tr><td>-10 à -12</td><td><span class="radio-quality-badge badge-orange">Moyen</span></td></tr>
-                    <tr><td>≤ -13</td><td><span class="radio-quality-badge badge-red">Mauvais</span></td></tr>
-                </tbody>
-            </table>
-            <table class="ref-table">
-                <thead>
-                    <tr><th>SINR (dB)</th><th>Qualité</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>≥ 20</td><td><span class="radio-quality-badge badge-green">Excellent</span></td></tr>
-                    <tr><td>13 à 19</td><td><span class="radio-quality-badge badge-blue">Bon</span></td></tr>
-                    <tr><td>0 à 12</td><td><span class="radio-quality-badge badge-orange">Faible</span></td></tr>
-                    <tr><td>&lt; 0</td><td><span class="radio-quality-badge badge-red">Très mauvais</span></td></tr>
+                    <tr>
+                        <th>≥ −85 dBm <em>(Excellent)</em></th>
+                        <td><span class="q-pill q-green">Optimal</span></td>
+                        <td><span class="q-pill q-green">Très bon</span></td>
+                        <td><span class="q-pill q-orange">Correct</span></td>
+                        <td><span class="q-pill q-gray">Dégradé</span></td>
+                    </tr>
+                    <tr>
+                        <th>−85 à −100 dBm <em>(Bon)</em></th>
+                        <td><span class="q-pill q-green">Très bon</span></td>
+                        <td><span class="q-pill q-green">Bon</span></td>
+                        <td><span class="q-pill q-orange">Acceptable</span></td>
+                        <td><span class="q-pill q-gray">Problématique</span></td>
+                    </tr>
+                    <tr>
+                        <th>−100 à −115 dBm <em>(Faible)</em></th>
+                        <td><span class="q-pill q-green">Bon</span></td>
+                        <td><span class="q-pill q-orange">Acceptable</span></td>
+                        <td><span class="q-pill q-gray">Limite</span></td>
+                        <td><span class="q-pill q-red">Très dégradé</span></td>
+                    </tr>
+                    <tr>
+                        <th>&lt; −115 dBm <em>(Critique)</em></th>
+                        <td><span class="q-pill q-gray">Utilisable</span></td>
+                        <td><span class="q-pill q-gray">Limite</span></td>
+                        <td><span class="q-pill q-red">Critique</span></td>
+                        <td><span class="q-pill q-red">Inutilisable</span></td>
+                    </tr>
                 </tbody>
             </table>
 
             <!-- Points de mesure dynamiques -->
-            <!-- Conteneur vide pour les points de mesure dynamiques -->
-<div id="measurePointsContainer"></div>
+            <div id="measurePointsContainer"></div>
 
-<!-- Bouton pour ajouter des points -->
-<button class="btn-secondary" id="addMeasurePointBtn" style="margin-top:10px;">
-    ➕ Ajouter un point de mesure
-</button>
+            <!-- Bouton pour ajouter des points -->
+            <button class="btn-secondary" id="addMeasurePointBtn" style="margin-top:14px;">
+                ➕ Ajouter un point de mesure
+            </button>
+        </div>
 
         <!-- ===== SECTION 4 - PLAN D'ÉVACUATION INTERACTIF ===== -->
         <div class="section">
@@ -979,11 +1305,12 @@
             <div class="info-box">
                 Importez une photo du plan d'évacuation. Cliquez ensuite sur le bouton <b>"Ajouter un point de mesure"</b> pour placer un point sur le plan. Les points seront automatiquement colorés selon la qualité radio globale de chaque point.
             </div>
-            <div class="evacuation-upload-area" id="evacUploadArea">
+            <label class="evacuation-upload-area" id="evacUploadArea" for="evacFileInput">
                 <span style="font-size:2rem;">📷</span>
                 <p>Cliquez pour importer une photo du plan d'évacuation</p>
-                <input type="file" accept="image/*" id="evacFileInput">
-            </div>
+            </label>
+            <input type="file" accept="image/*" id="evacFileInput" style="display:none">
+
             <div id="evacStageContainer" style="display:none; position:relative; margin-top:10px; text-align:center;">
                 <div class="evac-stage-wrap" id="evacStageWrap">
                     <img id="evacBgImage" alt="Plan d'évacuation">
@@ -1001,22 +1328,7 @@
         Ajoutez des photos du cheminement, de l'installation et des points de pénétration. Utilisez l'éditeur pour annoter (flèches, cercles, texte).
     </div>
     <div id="cheminementContainer">
-        <div class="cheminement-item">
-            <div class="photo-upload">
-                <div class="photo-upload-label">
-                    📷 Photo 1
-                    <input type="file" accept="image/*" data-photo-key="cheminement_1" class="cheminement-photo-input">
-                    
-                    <button class="annotate-btn" data-annotate="cheminement_1" disabled>✏ Annoter</button>
-                    <button class="clear-photo" data-clear="cheminement_1">✕</button>
-                </div>
-                <img class="photo-preview" id="preview_cheminement_1">
-            </div>
-            <div class="field-row">
-                <label>Commentaire</label>
-                <textarea class="cheminement-comment" rows="2" placeholder="Description du cheminement..."></textarea>
-            </div>
-        </div>
+        <!-- Les cheminements sont ajoutés dynamiquement par app.js -->
     </div>
     <button class="btn-secondary" id="addCheminementBtn">➕ Ajouter une photo de cheminement</button>
 </div>
