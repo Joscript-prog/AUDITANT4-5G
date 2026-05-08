@@ -42,17 +42,74 @@ const Editor = (function () {
     const photo = photoStore[photoKey];
     if (!photo) return;
 
-    // Si la photo a déjà été annotée, on repart du dataURL "annoté" en bg
+    // Si la photo a déjà été annotée, on repart de la photo ORIGINALE en bg
+    // et on recréera les annotations par-dessus depuis photo.annotations
     const srcUrl = photo.originalDataUrl || photo.dataUrl;
 
     bgPhotoEl.onload = () => {
       stageW = bgPhotoEl.naturalWidth;
       stageH = bgPhotoEl.naturalHeight;
       fitStage();
+
+      // ⭐ Restaurer les annotations sauvegardées (si présentes)
+      if (photo.annotations && Array.isArray(photo.annotations) && photo.annotations.length > 0) {
+        photo.annotations.forEach(d => recreateElementFromData(d));
+      }
     };
     bgPhotoEl.src = srcUrl;
 
     document.getElementById("editorOverlay").classList.add("shown");
+  }
+
+  // Recréer un élément à partir de son data (pour la ré-édition)
+  function recreateElementFromData(d) {
+    if (!d || !d.type) return;
+    const data = JSON.parse(JSON.stringify(d)); // clone
+
+    if (data.type === "image") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "editor-element";
+      const img = document.createElement("img");
+      img.src = data.src;
+      img.draggable = false;
+      wrapper.appendChild(img);
+      wrapper.dataset.uid = uid();
+      wrapper._data = data;
+      stageEl.appendChild(wrapper);
+      elements.push({ el: wrapper, data });
+      attachHandlers(wrapper);
+      applyTransform(wrapper, data);
+    }
+    else if (data.type === "text") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "editor-element text-element";
+      wrapper.textContent = data.text;
+      applyTextStyle(wrapper, data);
+      wrapper.dataset.uid = uid();
+      wrapper._data = data;
+      stageEl.appendChild(wrapper);
+      elements.push({ el: wrapper, data });
+      attachHandlers(wrapper);
+      applyTransform(wrapper, data);
+      wrapper.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        const newText = prompt("Modifier le texte :", data.text);
+        if (newText !== null && newText.trim() !== "") {
+          data.text = newText;
+          wrapper.textContent = newText;
+        }
+      });
+    }
+    else if (data.type === "arrow") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "editor-element arrow-element";
+      wrapper.dataset.uid = uid();
+      wrapper._data = data;
+      stageEl.appendChild(wrapper);
+      elements.push({ el: wrapper, data });
+      renderArrow(wrapper, data);
+      attachHandlers(wrapper);
+    }
   }
 
   // Adapter la taille d'affichage au conteneur
@@ -946,6 +1003,10 @@ const Editor = (function () {
     photo.type = "png";
     photo.dataUrl = dataUrl;
     photo.annotated = true;
+
+    // ⭐ Sauvegarder les annotations pour une ré-édition future
+    // On clone profondément les data pour qu'ils soient indépendants des éléments DOM
+    photo.annotations = elements.map(e => JSON.parse(JSON.stringify(e.data)));
 
     const prev = document.getElementById("preview_" + currentPhotoKey);
     if (prev) {
