@@ -965,53 +965,13 @@
             </table>
 
             <!-- Points de mesure dynamiques -->
-            <div id="measurePointsContainer">
-                <div class="measure-point-group" data-point="1">
-                    <h3>Point 1 — Emplacement souhaité par le client</h3>
-                    <div class="field-row">
-                        <label>Lieu / Pièce</label>
-                        <input type="text" class="point-lieu" value="Local informatique">
-                    </div>
-                    <div class="photo-upload">
-                        <div class="photo-upload-label">
-                            📷 Photo du point 1
-                            <input type="file" accept="image/*" class="measure-photo-input" data-point="1">
-                            <button class="annotate-btn" data-annotate-measure="1" disabled>✏ Annoter</button>
-                            <button class="clear-photo" data-clear-measure="1">✕</button>
-                        </div>
-                        <img class="photo-preview" id="preview_measure_1">
-                    </div>
-                    <div class="field-row">
-                        <label>RSRP (dBm)</label>
-                        <input type="number" class="measure-rsrp" step="1" placeholder="-85">
-                    </div>
-                    <div class="field-row">
-                        <label>RSRQ (dB)</label>
-                        <input type="number" class="measure-rsrq" step="0.1" placeholder="-10">
-                    </div>
-                    <div class="field-row">
-                        <label>SINR (dB)</label>
-                        <input type="number" class="measure-sinr" step="0.1" placeholder="15">
-                    </div>
-                    <div class="field-row">
-                        <label>Débit descendant (Mbps)</label>
-                        <input type="number" class="measure-down" step="0.01" placeholder="50">
-                    </div>
-                    <div class="field-row">
-                        <label>Débit montant (Mbps)</label>
-                        <input type="number" class="measure-up" step="0.01" placeholder="10">
-                    </div>
-                    <div class="field-row">
-                        <label>Bande (ex: 20, 28, n78...)</label>
-                        <input type="text" class="measure-band" placeholder="20">
-                    </div>
-                    <div class="auto-analysis-box" data-analyze="1">
-                        <strong>Analyse automatique :</strong> <span class="analysis-result">En attente de données</span>
-                    </div>
-                </div>
-            </div>
-            <button class="btn-secondary" id="addMeasurePointBtn" style="margin-top:10px;">➕ Ajouter un point de mesure</button>
-        </div>
+            <!-- Conteneur vide pour les points de mesure dynamiques -->
+<div id="measurePointsContainer"></div>
+
+<!-- Bouton pour ajouter des points -->
+<button class="btn-secondary" id="addMeasurePointBtn" style="margin-top:10px;">
+    ➕ Ajouter un point de mesure
+</button>
 
         <!-- ===== SECTION 4 - PLAN D'ÉVACUATION INTERACTIF ===== -->
         <div class="section">
