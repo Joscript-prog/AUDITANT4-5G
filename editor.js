@@ -973,14 +973,32 @@ const Editor = (function () {
   return { init, open, close, save };
 })();
 
-// Exposer les fonctions appelées depuis le HTML à l'objet window
-    window.closeEditor = function() { Editor.close(); };
-    window.saveAnnotation = function() { Editor.save(); };
+// =============================================
+//  INITIALISATION ET EXPOSITION GLOBALE
+// =============================================
 
-    // Initialiser l'éditeur au chargement du DOM
-    document.addEventListener("DOMContentLoaded", Editor.init);
+// Initialisation immédiate (plus fiable car les scripts sont chargés à la fin)
+if (typeof Editor !== "undefined" && typeof Editor.init === "function") {
+    Editor.init();
+}
 
-    // Rendre l'objet Editor globalement accessible pour app.js
-    window.Editor = Editor;
+// Fallback au cas où
+document.addEventListener("DOMContentLoaded", () => {
+    if (typeof Editor !== "undefined" && typeof Editor.init === "function") {
+        Editor.init();
+    }
+});
+
+// Exposer les fonctions pour le HTML et app.js
+window.closeEditor = function() {
+    if (Editor && typeof Editor.close === "function") Editor.close();
+};
+
+window.saveAnnotation = function() {
+    if (Editor && typeof Editor.save === "function") Editor.save();
+};
+
+// Rendre l'objet Editor accessible globalement
+window.Editor = Editor;
 
 })(); // Fermeture finale du script
