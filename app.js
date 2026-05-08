@@ -788,6 +788,8 @@ function makeRepeatingHeader() {
 
             // Photos
 // --- NOUVEAU CODE POUR PHOTOS CÔTE À CÔTE ---
+// --- REMPLACER LES LIGNES 365 à 384 PAR CE BLOC ---
+// Dans generateDocument, à l'intérieur de la boucle des points de mesure
 const keyLieu = `mesure_lieu_${num}`;
 const keyScreen = `mesure_screen_${num}`;
 
@@ -795,17 +797,13 @@ if (photoStore[keyLieu] || photoStore[keyScreen]) {
     children.push(new Table({
         width: { size: 9360, type: WidthType.DXA },
         borders: {
-            top: { style: BorderStyle.NONE },
-            bottom: { style: BorderStyle.NONE },
-            left: { style: BorderStyle.NONE },
-            right: { style: BorderStyle.NONE },
-            insideHorizontal: { style: BorderStyle.NONE },
-            insideVertical: { style: BorderStyle.NONE },
+            top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE},
+            left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE},
+            insideHorizontal: {style: BorderStyle.NONE}, insideVertical: {style: BorderStyle.NONE}
         },
         rows: [
             new TableRow({
                 children: [
-                    // Colonne de gauche : Photo du lieu
                     new TableCell({
                         width: { size: 4680, type: WidthType.DXA },
                         children: photoStore[keyLieu] ? [
@@ -819,7 +817,6 @@ if (photoStore[keyLieu] || photoStore[keyScreen]) {
                             })
                         ] : []
                     }),
-                    // Colonne de droite : Capture d'écran
                     new TableCell({
                         width: { size: 4680, type: WidthType.DXA },
                         children: photoStore[keyScreen] ? [
@@ -838,28 +835,15 @@ if (photoStore[keyLieu] || photoStore[keyScreen]) {
         ]
     }));
 }
-children.push(P("")); // Espace après les photos
-            const keyScreen = `mesure_screen_${num}`;
-            if (photoStore[keyScreen]) {
-                children.push(P("Copie écran :", { bold: true }));
-                children.push(new Paragraph({
-                    children: [
-                        new ImageRun({
-                            data: photoStore[keyScreen].data,
-                            transformation: { width: 400, height: 300 },
-                            type: photoStore[keyScreen].type
-                        })
-                    ]
-                }));
-            }
-            children.push(P(""));
-        });
-
+children.push(P("")); // Un seul espace après le tableau
+            
         // Plan d'évacuation
         children.push(P("4. PLAN D'ÉVACUATION", { bold: true, size: 26, color: COLOR_PRIMARY }));
+
         if (photoStore['evac_plan']) {
             children.push(P("Plan importé :", { bold: true }));
             children.push(new Paragraph({
+                alignment: AlignmentType.CENTER, // Ajout du centrage pour un rendu propre
                 children: [
                     new ImageRun({
                         data: photoStore['evac_plan'].data,
@@ -869,18 +853,22 @@ children.push(P("")); // Espace après les photos
                 ]
             }));
         }
-        if (evacPoints.length > 0) {
-            children.push(P("Points positionnés :"));
+
+        if (evacPoints && evacPoints.length > 0) {
+            children.push(P("Points positionnés sur le plan :", { bold: true }));
             evacPoints.forEach(p => {
                 const group = document.querySelector(`.measure-point-group[data-point="${p.pointId}"]`);
                 const lieu = group ? group.querySelector('.point-lieu').value : `Point ${p.pointId}`;
                 const analysis = group ? group.querySelector('.analysis-result').textContent : "";
-                children.push(P(`• Point ${p.pointId} — ${lieu} : ${analysis}`));
+                
+                // On affiche le point, le lieu et le résultat de l'analyse radio
+                children.push(P(`• Point ${p.pointId} — ${lieu || "Lieu non précisé"} : ${analysis}`));
             });
         } else {
-            children.push(P("Aucun point positionné.", { italics: true }));
+            children.push(P("Aucun point de mesure n'a été positionné sur le plan.", { italics: true }));
         }
-        children.push(P(""));
+        
+        children.push(P("")); // Espace de séparation
 
         // Cheminement
         children.push(P("5. CHEMINEMENT CÂBLE / INSTALLATION", { bold: true, size: 26, color: COLOR_PRIMARY }));
