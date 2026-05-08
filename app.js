@@ -653,58 +653,71 @@ async function generateDocument() {
             });
         }
 
-        function makeRepeatingHeader() {
-            return new Header({
-                children: [new Table({
-                    width: { size: 9360, type: WidthType.DXA },
-                    rows: [new TableRow({
+function makeRepeatingHeader() {
+    return new Header({
+        children: [new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            // On retire les bordures du tableau des logos pour que ce soit propre
+            borders: {
+                top: { style: BorderStyle.NONE },
+                bottom: { style: BorderStyle.NONE },
+                left: { style: BorderStyle.NONE },
+                right: { style: BorderStyle.NONE },
+                insideHorizontal: { style: BorderStyle.NONE },
+                insideVertical: { style: BorderStyle.NONE },
+            },
+            rows: [new TableRow({
+                children: [
+                    // Logo IPKONEKT à gauche
+                    new TableCell({
                         children: [
-                            new TableCell({
+                            new Paragraph({
                                 children: [
-                                    new Paragraph({
-                                        children: [
-                                            new ImageRun({
-                                                data: b64ToUint8Array(LOGO_IPKONEKT_B64),
-                                                transformation: { width: 110, height: 55 }
-                                            })
-                                        ]
-                                    })
-                                ]
-                            }),
-                            new TableCell({
-                                children: [
-                                    new Paragraph({
-                                        alignment: AlignmentType.CENTER,
-                                        children: [
-                                            new TextRun({
-                                                text: "RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G",
-                                                bold: true,
-                                                size: 28,
-                                                color: COLOR_PRIMARY,
-                                                font: FONT
-                                            })
-                                        ]
-                                    })
-                                ]
-                            }),
-                            new TableCell({
-                                children: [
-                                    new Paragraph({
-                                        alignment: AlignmentType.RIGHT,
-                                        children: [
-                                            new ImageRun({
-                                                data: b64ToUint8Array(LOGO_BOUYGUES_B64),
-                                                transformation: { width: 130, height: 55 }
-                                            })
-                                        ]
+                                    new ImageRun({
+                                        data: b64ToUint8Array(LOGO_IPKONEKT_B64),
+                                        transformation: { width: 56, height: 50 }
                                     })
                                 ]
                             })
                         ]
-                    })]
-                })]
-            });
-        }
+                    }),
+                    // Titre au centre
+                    new TableCell({
+                        verticalAlign: VerticalAlign.CENTER,
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [
+                                    new TextRun({
+                                        text: "RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G",
+                                        bold: true,
+                                        size: 24, // Taille 12 dans Word
+                                        color: "1F3864",
+                                        font: "Calibri"
+                                    })
+                                ]
+                            })
+                        ]
+                    }),
+                    // Logo BOUYGUES à droite
+                    new TableCell({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.RIGHT,
+                                children: [
+                                    new ImageRun({
+                                        data: b64ToUint8Array(LOGO_BOUYGUES_B64),
+                                        transformation: { width: 56, height: 56 }
+                                    })
+                                ]
+                            })
+                        ]
+                    })
+                ]
+            })]
+        })]
+    });
+}
 
          // Construction du document
         const children = [];
@@ -774,19 +787,58 @@ async function generateDocument() {
             children.push(P("Analyse : " + analysis));
 
             // Photos
-            const keyLieu = `mesure_lieu_${num}`;
-            if (photoStore[keyLieu]) {
-                children.push(P("Photo du lieu :", { bold: true }));
-                children.push(new Paragraph({
-                    children: [
-                        new ImageRun({
-                            data: photoStore[keyLieu].data,
-                            transformation: { width: 400, height: 300 },
-                            type: photoStore[keyLieu].type
-                        })
-                    ]
-                }));
-            }
+// --- NOUVEAU CODE POUR PHOTOS CÔTE À CÔTE ---
+const keyLieu = `mesure_lieu_${num}`;
+const keyScreen = `mesure_screen_${num}`;
+
+if (photoStore[keyLieu] || photoStore[keyScreen]) {
+    children.push(new Table({
+        width: { size: 9360, type: WidthType.DXA },
+        borders: {
+            top: { style: BorderStyle.NONE },
+            bottom: { style: BorderStyle.NONE },
+            left: { style: BorderStyle.NONE },
+            right: { style: BorderStyle.NONE },
+            insideHorizontal: { style: BorderStyle.NONE },
+            insideVertical: { style: BorderStyle.NONE },
+        },
+        rows: [
+            new TableRow({
+                children: [
+                    // Colonne de gauche : Photo du lieu
+                    new TableCell({
+                        width: { size: 4680, type: WidthType.DXA },
+                        children: photoStore[keyLieu] ? [
+                            P("📷 Photo du lieu :", { bold: true }),
+                            new Paragraph({
+                                children: [new ImageRun({
+                                    data: photoStore[keyLieu].data,
+                                    transformation: { width: 230, height: 170 },
+                                    type: photoStore[keyLieu].type
+                                })]
+                            })
+                        ] : []
+                    }),
+                    // Colonne de droite : Capture d'écran
+                    new TableCell({
+                        width: { size: 4680, type: WidthType.DXA },
+                        children: photoStore[keyScreen] ? [
+                            P("📱 Copie écran :", { bold: true }),
+                            new Paragraph({
+                                children: [new ImageRun({
+                                    data: photoStore[keyScreen].data,
+                                    transformation: { width: 230, height: 170 },
+                                    type: photoStore[keyScreen].type
+                                })]
+                            })
+                        ] : []
+                    })
+                ]
+            })
+        ]
+    }));
+}
+children.push(P("")); // Espace après les photos
             const keyScreen = `mesure_screen_${num}`;
             if (photoStore[keyScreen]) {
                 children.push(P("Copie écran :", { bold: true }));
@@ -884,6 +936,7 @@ async function generateDocument() {
         children.push(P(`Date : ${formatDateFR(val("signataire_date")) || "_______________________________"}`));
 
         // Assemblage final
+ // Assemblage final
         const doc = new Document({
             sections: [{
                 properties: {
@@ -892,6 +945,24 @@ async function generateDocument() {
                     }
                 },
                 headers: { default: makeRepeatingHeader() },
+                footers: {
+                    default: new Footer({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                children: [
+                                    new TextRun({
+                                        text: "Document confidentiel — Usage interne IPKONEKT / Bouygues Telecom",
+                                        italics: true,
+                                        size: 16,
+                                        color: "888888",
+                                        font: "Calibri"
+                                    })
+                                ]
+                            })
+                        ]
+                    })
+                },
                 children: children
             }]
         });
