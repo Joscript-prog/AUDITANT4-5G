@@ -121,6 +121,16 @@ function handleGlobalClick(e) {
         }
         return;
     }
+
+    // Suppression d'un point sur le plan d'évacuation
+    const delEvac = e.target.closest("[data-del-evac]");
+    if (delEvac) {
+        const pid = parseInt(delEvac.dataset.delEvac, 10);
+        const dot = document.querySelector(`.evac-point[data-pid="${pid}"]`);
+        if (dot) dot.remove();
+        evacPoints = evacPoints.filter(p => p.pointId !== pid);
+        return;
+    }
 }
 
 // ---------- TRAITEMENT PHOTO (centralisé) ----------
@@ -222,6 +232,11 @@ function analyzePoint(group) {
     resultSpan.style.color = "#ffffff";
     group.dataset.analysisLabel = q.label;
     group.dataset.analysisColor = q.color;
+
+    // Synchroniser la couleur du point évac correspondant
+    if (typeof refreshAllEvacPointColors === "function") {
+        refreshAllEvacPointColors();
+    }
 }
 
 // ---------- POINTS DE MESURE DYNAMIQUES ----------
@@ -351,39 +366,142 @@ function addEvacPoint() {
     }
     evacPointCounter++;
     const pid = evacPointCounter;
-    const dot = document.createElement('div');
-    dot.className = 'evac-point';
-    dot.dataset.pid = pid;
-    dot.style.left = '50%';
-    dot.style.top = '50%';
-    dot.innerHTML = `
-        <div class="evac-pin">P${pid}</div>
-    `;
-    // Drag & drop
-    makeDraggable(dot, wrap);
-    wrap.appendChild(dot);
-    evacPoints.push({ pointId: pid });
+    // État initial du point (positions en %, taille en px)
+    const pointState = {
+        pointId: pid,
+        leftPct: 50,
+        topPct: 50,
+        size: 60   // diamètre du halo en px
+    };
+    evacPoints.push(pointState);
+    renderEvacPoint(pointState);
+    refreshAllEvacPointColors();
 }
 
-function makeDraggable(el, container) {
-    let isDown = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
-    el.addEventListener('mousedown', (e) => {
-        if (e.target.classList && e.target.classList.contains('evac-pin-del')) return;
-        isDown = true;
-        startX = e.clientX; startY = e.clientY;
-        const rect = container.getBoundingClientRect();
-        origLeft = el.offsetLeft;
-        origTop = el.offsetTop;
+// (Re)dessiner un point sur le plan d'évacuation à partir de son état
+function renderEvacPoint(state) {
+    const wrap = document.getElementById('evacStageWrap');
+    if (!wrap) return;
+    // Supprimer l'ancien rendu si existe
+    const old = wrap.querySelector(`.evac-point[data-pid="${state.pointId}"]`);
+    if (old) old.remove();
+
+    const dot = document.createElement('div');
+    dot.className = 'evac-point';
+    dot.dataset.pid = state.pointId;
+    dot.style.left = state.leftPct + '%';
+    dot.style.top = state.topPct + '%';
+    dot.style.width  = state.size + 'px';
+    dot.style.height = state.size + 'px';
+    // contenu : pin (label P#) + halo + dot central + handle de resize + bouton supprimer
+    dot.innerHTML = `
+        <div class="evac-halo"></div>
+        <div class="evac-core"></div>
+        <div class="evac-pin">P${state.pointId}</div>
+        <div class="evac-resize" title="Étirer pour agrandir le halo">⤢</div>
+        <div class="evac-del" data-del-evac="${state.pointId}" title="Supprimer">✕</div>
+    `;
+    wrap.appendChild(dot);
+    makeEvacInteractive(dot, state, wrap);
+}
+
+// Drag + Resize sur un point d'évacuation (souris + tactile)
+function makeEvacInteractive(el, state, container) {
+    const halo = el.querySelector('.evac-halo');
+    const core = el.querySelector('.evac-core');
+    const handle = el.querySelector('.evac-resize');
+
+    let mode = null; // 'drag' ou 'resize'
+    let startX = 0, startY = 0, startSize = state.size;
+
+    const getPoint = (e) => {
+        if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    };
+
+    const onDown = (e) => {
+        const target = e.target;
+        if (target.classList.contains('evac-del')) return;
+        if (target.classList.contains('evac-resize')) {
+            mode = 'resize';
+            startSize = state.size;
+        } else {
+            mode = 'drag';
+        }
+        const pt = getPoint(e);
+        startX = pt.x; startY = pt.y;
         e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const onMove = (e) => {
+        if (!mode) return;
+        const pt = getPoint(e);
+        const dx = pt.x - startX;
+        const dy = pt.y - startY;
+
+        if (mode === 'drag') {
+            const rect = container.getBoundingClientRect();
+            // position actuelle en px → convertir + ajouter le delta → reconvertir en %
+            const curX = (state.leftPct / 100) * rect.width;
+            const curY = (state.topPct  / 100) * rect.height;
+            const newX = Math.max(0, Math.min(rect.width,  curX + dx));
+            const newY = Math.max(0, Math.min(rect.height, curY + dy));
+            state.leftPct = (newX / rect.width)  * 100;
+            state.topPct  = (newY / rect.height) * 100;
+            el.style.left = state.leftPct + '%';
+            el.style.top  = state.topPct  + '%';
+            startX = pt.x; startY = pt.y;
+        } else if (mode === 'resize') {
+            // Le delta diagonal donne la nouvelle taille
+            const delta = Math.max(dx, dy);
+            const newSize = Math.max(20, Math.min(400, startSize + delta));
+            state.size = newSize;
+            el.style.width  = newSize + 'px';
+            el.style.height = newSize + 'px';
+        }
+    };
+
+    const onUp = () => { mode = null; };
+
+    el.addEventListener('mousedown', onDown);
+    el.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+}
+
+// Met à jour les couleurs de tous les points évac selon les points de mesure correspondants
+function refreshAllEvacPointColors() {
+    const groups = document.querySelectorAll('.measure-point-group');
+    evacPoints.forEach((state) => {
+        const idx = state.pointId - 1; // P1 → mesure 0
+        const grp = groups[idx];
+        const colorHex = (grp && grp.dataset.analysisColor)
+            ? grp.dataset.analysisColor
+            : "#dc2626"; // rouge par défaut si pas de mesure correspondante
+        applyEvacPointColor(state.pointId, colorHex);
     });
-    document.addEventListener('mousemove', (e) => {
-        if (!isDown) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        el.style.left = (origLeft + dx) + 'px';
-        el.style.top = (origTop + dy) + 'px';
-    });
-    document.addEventListener('mouseup', () => { isDown = false; });
+}
+
+function applyEvacPointColor(pid, colorHex) {
+    const el = document.querySelector(`.evac-point[data-pid="${pid}"]`);
+    if (!el) return;
+    const hex = colorHex.replace("#", "");
+    // halo : couleur translucide (rgba)
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const halo = el.querySelector('.evac-halo');
+    const core = el.querySelector('.evac-core');
+    if (halo) {
+        halo.style.background = `radial-gradient(circle, rgba(${r},${g},${b},0.55) 0%, rgba(${r},${g},${b},0.25) 40%, rgba(${r},${g},${b},0) 75%)`;
+    }
+    if (core) {
+        core.style.background = colorHex;
+    }
+    el.dataset.color = colorHex;
 }
 
 // ---------- CHEMINEMENT ----------
@@ -414,6 +532,115 @@ function addCheminementItem() {
         const annBtn = div.querySelector('.annotate-btn');
         if (annBtn) annBtn.disabled = false;
     });
+}
+
+// ---------- COMPOSER LE PLAN D'ÉVACUATION + POINTS POUR LE WORD ----------
+async function composeEvacPlanWithPoints() {
+    const photo = photoStore['evac_plan'];
+    if (!photo) return null;
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // Récupérer la taille du conteneur d'affichage pour convertir size px → coord image
+            const wrap = document.getElementById('evacStageWrap');
+            const wrapRect = wrap ? wrap.getBoundingClientRect() : { width: img.naturalWidth, height: img.naturalHeight };
+            const scaleX = img.naturalWidth  / Math.max(1, wrapRect.width);
+            const scaleY = img.naturalHeight / Math.max(1, wrapRect.height);
+
+            // Récupérer les couleurs depuis les points de mesure
+            const groups = document.querySelectorAll('.measure-point-group');
+
+            evacPoints.forEach((state) => {
+                const grp = groups[state.pointId - 1];
+                const colorHex = (grp && grp.dataset.analysisColor) ? grp.dataset.analysisColor : "#dc2626";
+                const hex = colorHex.replace("#","");
+                const r = parseInt(hex.substring(0,2),16);
+                const g = parseInt(hex.substring(2,4),16);
+                const b = parseInt(hex.substring(4,6),16);
+
+                // Position en px image
+                const cx = (state.leftPct / 100) * img.naturalWidth;
+                const cy = (state.topPct  / 100) * img.naturalHeight;
+                // Taille du halo en px image
+                const haloR = (state.size / 2) * Math.max(scaleX, scaleY);
+
+                // Halo (gradient radial)
+                const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
+                grad.addColorStop(0,    `rgba(${r},${g},${b},0.55)`);
+                grad.addColorStop(0.4,  `rgba(${r},${g},${b},0.25)`);
+                grad.addColorStop(0.75, `rgba(${r},${g},${b},0)`);
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Dot central (compact)
+                const coreR = Math.max(6, 7 * Math.max(scaleX, scaleY));
+                ctx.fillStyle = "white";
+                ctx.beginPath();
+                ctx.arc(cx, cy, coreR + 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = colorHex;
+                ctx.beginPath();
+                ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Pin (label P#)
+                const labelTxt = `P${state.pointId}`;
+                const fontSize = Math.max(14, 14 * Math.max(scaleX, scaleY));
+                ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+                const metrics = ctx.measureText(labelTxt);
+                const padX = 8, padY = 4;
+                const labelW = metrics.width + padX * 2;
+                const labelH = fontSize + padY * 2;
+                const labelX = cx - labelW / 2;
+                const labelY = cy - haloR - labelH - 6; // au-dessus du halo
+                // bg blanc avec bordure bleue
+                ctx.fillStyle = "white";
+                ctx.strokeStyle = "#1F4E79";
+                ctx.lineWidth = 1.5;
+                roundRect(ctx, labelX, labelY, labelW, labelH, 4, true, true);
+                ctx.fillStyle = "#1F4E79";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(labelTxt, cx, labelY + labelH / 2);
+            });
+
+            // Convertir le canvas en Uint8Array PNG
+            canvas.toBlob(async (blob) => {
+                if (!blob) return resolve(null);
+                const buf = await blob.arrayBuffer();
+                const u8 = new Uint8Array(buf);
+                // Calculer dimensions d'affichage (max 500 de large)
+                const ratio = img.naturalHeight / img.naturalWidth;
+                const dispW = 500;
+                const dispH = Math.round(dispW * ratio);
+                resolve({ data: u8, dispW: dispW, dispH: dispH });
+            }, 'image/png');
+        };
+        img.onerror = () => resolve(null);
+        img.src = photo.dataUrl;
+    });
+}
+
+// Helper : rectangle arrondi
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+    if (typeof r === 'undefined') r = 5;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
 }
 
 // ============================================================
@@ -845,43 +1072,122 @@ async function generateDocument() {
         });
     }
 
-    // === SECTION 4 : PLAN D'ÉVACUATION ===
+    // === SECTION 4 : PLAN D'ÉVACUATION (avec points superposés) ===
     children.push(sectionTitle(4, "Plan d'évacuation – Localisation des points de mesure"));
     if (photoStore['evac_plan']) {
-        children.push(new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 120, after: 120 },
-            children: [new ImageRun({
-                data: photoStore['evac_plan'].data,
-                transformation: { width: 500, height: 350 },
-                type: photoStore['evac_plan'].type
-            })]
-        }));
+        // Composer le plan + les points dans un canvas
+        const composed = await composeEvacPlanWithPoints();
+        if (composed) {
+            children.push(new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 120, after: 120 },
+                children: [new ImageRun({
+                    data: composed.data,
+                    transformation: { width: composed.dispW, height: composed.dispH },
+                    type: "png"
+                })]
+            }));
+        } else {
+            // Fallback : juste le plan brut
+            children.push(new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 120, after: 120 },
+                children: [new ImageRun({
+                    data: photoStore['evac_plan'].data,
+                    transformation: { width: 500, height: 350 },
+                    type: photoStore['evac_plan'].type
+                })]
+            }));
+        }
         if (evacPoints.length > 0) {
-            children.push(P(`Nombre de points positionnés sur le plan : ${evacPoints.length}`, { italics: true, color: "555555" }));
+            // Légende des points : P1 → couleur → label qualité
+            const groups = document.querySelectorAll('.measure-point-group');
+            const legendRows = evacPoints.map(p => {
+                const grp = groups[p.pointId - 1];
+                const label = grp ? (grp.dataset.analysisLabel || "—") : "—";
+                const lieu  = grp ? (grp.querySelector('.point-lieu')?.value || `Point ${p.pointId}`) : `Point ${p.pointId}`;
+                const colorHex = grp ? (grp.dataset.analysisColor || "#6b7280") : "#6b7280";
+                return { pid: p.pointId, lieu, label, color: colorHex.replace("#","").toUpperCase() };
+            });
+            children.push(P("Légende des points :", { italics: true, color: "555555", spacing: { before: 80, after: 60 } }));
+            children.push(new Table({
+                width: { size: 9360, type: WidthType.DXA },
+                columnWidths: [780, 4680, 3900],
+                rows: legendRows.map(r => new TableRow({
+                    children: [
+                        new TableCell({
+                            width: { size: 780, type: WidthType.DXA },
+                            shading: { fill: r.color, type: ShadingType.CLEAR, color: "auto" },
+                            margins: { top: 80, bottom: 80, left: 100, right: 100 },
+                            borders: stdBorders,
+                            children: [new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                children: [new TextRun({ text: `P${r.pid}`, bold: true, size: 20, color: "FFFFFF", font: "Calibri" })]
+                            })]
+                        }),
+                        valueCell(r.lieu, 4680),
+                        valueCell(r.label, 3900)
+                    ]
+                }))
+            }));
         }
     } else {
         children.push(P("(Aucun plan d'évacuation fourni)", { italics: true, color: "999999" }));
     }
 
-    // === SECTION 5 : CHEMINEMENT ===
+    // === SECTION 5 : CHEMINEMENT (2 par ligne) ===
     children.push(sectionTitle(5, "Cheminement câble & installation"));
-    const chemItems = document.querySelectorAll('.cheminement-item');
+    const chemItems = Array.from(document.querySelectorAll('.cheminement-item'));
     if (chemItems.length === 0) {
         children.push(P("(Aucun cheminement renseigné)", { italics: true, color: "999999" }));
     }
-    chemItems.forEach((item) => {
-        const idx = item.dataset.idx;
-        const key = `cheminement_${idx}`;
-        const comm = item.querySelector('.cheminement-comment')?.value || "";
-        if (photoStore[key]) {
-            children.push(P("", { spacing: { before: 200, after: 60 } }));
-            children.push(photoBanner(`Cheminement ${idx}`, key, { width: 9360, imgW: 380, imgH: 280 }));
-        }
-        if (comm) {
-            children.push(P(`Commentaire : ${comm}`, { italics: true, spacing: { before: 80, after: 80 } }));
-        }
-    });
+    // On groupe par paires
+    for (let i = 0; i < chemItems.length; i += 2) {
+        const left = chemItems[i];
+        const right = chemItems[i + 1] || null;
+
+        const buildChemCell = (item) => {
+            if (!item) {
+                return [P("", {})]; // cellule vide
+            }
+            const idx = item.dataset.idx;
+            const key = `cheminement_${idx}`;
+            const comm = item.querySelector('.cheminement-comment')?.value || "";
+            const blocks = [];
+            if (photoStore[key]) {
+                blocks.push(photoBannerInner(`Cheminement ${idx}`, key, 4560));
+            } else {
+                blocks.push(P(`(Cheminement ${idx} - pas de photo)`, { italics: true, color: "999999" }));
+            }
+            if (comm) {
+                blocks.push(P(`Commentaire : ${comm}`, { italics: true, size: 18, spacing: { before: 80, after: 80 } }));
+            }
+            return blocks;
+        };
+
+        children.push(P("", { spacing: { before: 200, after: 60 } }));
+        children.push(new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [4680, 4680],
+            borders: noBorders,
+            rows: [new TableRow({
+                children: [
+                    new TableCell({
+                        width: { size: 4680, type: WidthType.DXA },
+                        margins: { top: 0, bottom: 0, left: 60, right: 60 },
+                        borders: noBorders,
+                        children: buildChemCell(left)
+                    }),
+                    new TableCell({
+                        width: { size: 4680, type: WidthType.DXA },
+                        margins: { top: 0, bottom: 0, left: 60, right: 60 },
+                        borders: noBorders,
+                        children: buildChemCell(right)
+                    })
+                ]
+            })]
+        }));
+    }
 
     // === SECTION 6 : SYNTHÈSE ===
     children.push(sectionTitle(6, "Synthèse de l'intervention"));
@@ -1121,11 +1427,15 @@ function collectFormData() {
         });
     });
 
-    // Photos (dataUrl en base64)
+    // Photos (dataUrl en base64, plus annotations re-éditables si présentes)
     Object.keys(photoStore).forEach(k => {
+        const p = photoStore[k];
         data.photos[k] = {
-            type: photoStore[k].type,
-            dataUrl: photoStore[k].dataUrl
+            type: p.type,
+            dataUrl: p.dataUrl,
+            originalDataUrl: p.originalDataUrl || null,
+            annotations: p.annotations || null,
+            annotated: !!p.annotated
         };
     });
 
@@ -1194,13 +1504,20 @@ function applyFormData(data) {
         });
     }
 
-    // Photos (restauration depuis dataUrl)
+    // Photos (restauration depuis dataUrl + annotations re-éditables)
     if (data.photos) {
         Object.keys(data.photos).forEach(k => {
             const p = data.photos[k];
             if (!p || !p.dataUrl) return;
             const u8 = dataUrlToUint8Array(p.dataUrl);
-            photoStore[k] = { data: u8, type: p.type || "jpg", dataUrl: p.dataUrl };
+            photoStore[k] = {
+                data: u8,
+                type: p.type || "jpg",
+                dataUrl: p.dataUrl,
+                originalDataUrl: p.originalDataUrl || null,
+                annotations: p.annotations || null,
+                annotated: !!p.annotated
+            };
             const preview = document.getElementById("preview_" + k);
             if (preview) {
                 preview.src = p.dataUrl;
@@ -1284,6 +1601,39 @@ function applyFormData(data) {
         if (stage) stage.style.display = 'block';
         if (bgImg) bgImg.src = photoStore['evac_plan'].dataUrl;
         if (upArea) upArea.style.display = 'none';
+    }
+
+    // Restaurer les points sur le plan d'évacuation
+    if (Array.isArray(data.evacPoints) && data.evacPoints.length > 0) {
+        // Vider d'abord
+        const wrap = document.getElementById('evacStageWrap');
+        if (wrap) {
+            wrap.querySelectorAll('.evac-point').forEach(el => el.remove());
+        }
+        evacPoints = [];
+        evacPointCounter = 0;
+
+        // Attendre que l'image soit chargée pour avoir les bonnes dimensions
+        const bgImg = document.getElementById('evacBgImage');
+        const onReady = () => {
+            data.evacPoints.forEach(p => {
+                const state = {
+                    pointId: p.pointId,
+                    leftPct: typeof p.leftPct === 'number' ? p.leftPct : 50,
+                    topPct:  typeof p.topPct  === 'number' ? p.topPct  : 50,
+                    size:    typeof p.size    === 'number' ? p.size    : 60
+                };
+                evacPoints.push(state);
+                evacPointCounter = Math.max(evacPointCounter, state.pointId);
+                renderEvacPoint(state);
+            });
+            refreshAllEvacPointColors();
+        };
+        if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+            onReady();
+        } else if (bgImg) {
+            bgImg.addEventListener('load', onReady, { once: true });
+        }
     }
 }
 
