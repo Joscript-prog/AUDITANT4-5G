@@ -216,15 +216,6 @@ function addMeasurePoint(num = null) {
     });
 }
 
-async function handleMeasurePhoto(e) {
-    const index = e.target.dataset.measureIndex;
-    const type = e.target.dataset.photoType;
-    const key = `mesure_${type}_${index}`;
-    await processPhoto(e.target.files[0], key);
-    // Activer le bouton annoter correspondant
-    const annBtn = document.querySelector(`[data-annotate="${key}"]`);
-    if (annBtn) annBtn.disabled = false;
-}
 
 async function handleMeasurePhoto(e) {
     const index = e.target.dataset.measureIndex;
