@@ -222,9 +222,9 @@ async function handleMeasurePhoto(e) {
     const type = e.target.dataset.photoType;
     const key = `mesure_${type}_${index}`;
     await processPhoto(e.target.files[0], key);
-    // Activer le bouton annoter
-    // Le bouton annoter pour les mesures est géré différemment car ce sont des blocs dynamiques
-    // On peut activer le bouton globlal via window.Editor et la clé
+    // Activer le bouton annoter correspondant
+    const annBtn = document.querySelector(`[data-annotate="${key}"]`);
+    if (annBtn) annBtn.disabled = false;
 }
 
 function analyzePoint(group) {
