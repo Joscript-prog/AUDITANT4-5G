@@ -1,14 +1,14 @@
 // ============================================================
-//  AUDIT 4G/5G — Version Complète & Corrigée (basée sur Starlink v3)
+//  AUDIT 4G/5G — VERSION FINALE
+//  Basée sur Starlink v3 + adaptations complètes
 //  IPKONEKT / Bouygues Telecom
-//  Logos corrects + 2 photos par point de mesure + structure adaptée
 // ============================================================
 
 const photoStore = {};
 let measureCounter = 0;
-let evacPoints = [];
 let evacPointCounter = 0;
 let cheminementCounter = 1;
+let evacPoints = [];
 
 // ============================================================
 //  ATTENTE DES LIBRAIRIES
@@ -38,102 +38,91 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("date_audit").value = today;
     document.getElementById("signataire_date").value = today;
 
-    // Photos classiques (façade, etc.)
+    // Photos principales
     document.querySelectorAll('input[type="file"][data-photo-key]').forEach(input => {
         input.addEventListener("change", handlePhotoUpload);
     });
 
-    // Délégation clics (Annoter + Effacer)
+    // Gestion globale des clics
     document.body.addEventListener("click", handleGlobalClick);
 
-    // Points de mesure (3 par défaut)
+    // Points de mesure
     initMeasurePoints();
     document.getElementById("addMeasurePointBtn").addEventListener("click", () => addMeasurePoint());
 
-    // Cheminement & Évacuation
+    // Cheminement
     const btnChem = document.getElementById("addCheminementBtn");
     if (btnChem) btnChem.addEventListener("click", addCheminementItem);
 
+    // Plan d'évacuation
     document.getElementById("evacFileInput").addEventListener("change", handleEvacUpload);
     document.getElementById("addEvacPointBtn").addEventListener("click", addEvacPoint);
 
     // Import JSON
-    document.getElementById("importJSONInput").addEventListener("change", importJSON);
+    const importInput = document.getElementById("importJSONInput");
+    if (importInput) importInput.addEventListener("change", importJSON);
 
-    console.log("✅ Audit 4G/5G initialisé avec succès");
+    // Réinitialisation
+    document.querySelector('button.btn-secondary[onclick="resetForm()"]')?.addEventListener('click', resetForm);
+    // Export JSON
+    document.querySelector('button.btn-secondary[onclick="exportJSON()"]')?.addEventListener('click', exportJSON);
+
+    console.log("✅ Audit 4G/5G chargé et prêt");
 });
 
 // ============================================================
 //  GESTION GLOBALE DES CLICS (Annoter / Effacer)
 // ============================================================
 function handleGlobalClick(e) {
-    // Annoter
-    const annotateBtn = e.target.closest("[data-annotate]");
-    if (annotateBtn) {
-        const key = annotateBtn.dataset.annotate;
-        if (!photoStore[key]) {
-            alert("Importez d'abord une photo avant de l'annoter.");
-            return;
-        }
+    // Annoter (toutes photos)
+    const annBtn = e.target.closest("[data-annotate]");
+    if (annBtn) {
+        const key = annBtn.dataset.annotate;
+        if (!photoStore[key]) return alert("Importez d'abord une photo.");
         window.Editor.open(key, "Photo " + key);
         return;
     }
-    // Effacer photo standard
+    // Effacer (photos classiques)
     const clearBtn = e.target.closest("[data-clear]");
     if (clearBtn) {
         const key = clearBtn.dataset.clear;
         delete photoStore[key];
         const preview = document.getElementById("preview_" + key);
-        if (preview) {
-            preview.src = "";
-            preview.classList.remove("shown");
-        }
+        if (preview) preview.classList.remove("shown");
         const fileInput = document.querySelector(`input[data-photo-key="${key}"]`);
         if (fileInput) fileInput.value = "";
-        const annBtn = document.querySelector(`[data-annotate="${key}"]`);
-        if (annBtn) annBtn.disabled = true;
+        const annButton = document.querySelector(`[data-annotate="${key}"]`);
+        if (annButton) annButton.disabled = true;
         return;
     }
-    // Effacer photo measure
+    // Effacer (photos mesure)
     const clearMeasure = e.target.closest("[data-clear-measure]");
     if (clearMeasure) {
         const idx = clearMeasure.dataset.clearMeasure;
         const keys = [`mesure_lieu_${idx}`, `mesure_screen_${idx}`];
         keys.forEach(k => {
             delete photoStore[k];
-            const prev = document.getElementById(`preview_${k}`);
-            if (prev) {
-                prev.src = "";
-                prev.classList.remove("shown");
+            const preview = document.getElementById(`preview_${k}`);
+            if (preview) {
+                preview.src = "";
+                preview.classList.remove("shown");
             }
         });
-        const fileInputs = document.querySelectorAll(`[data-measure-index="${idx}"]`);
-        fileInputs.forEach(inp => inp.value = "");
-        return;
-    }
-    // Effacer photo cheminement
-    const clearCheminement = e.target.closest("[data-clear-cheminement]");
-    if (clearCheminement) {
-        const idx = clearCheminement.dataset.clearCheminement;
-        const key = `cheminement_${idx}`;
-        delete photoStore[key];
-        const prev = document.getElementById(`preview_cheminement_${idx}`);
-        if (prev) {
-            prev.src = "";
-            prev.classList.remove("shown");
-        }
-        const fileInput = document.querySelector(`[data-cheminement-index="${idx}"]`);
-        if (fileInput) fileInput.value = "";
+        document.querySelectorAll(`[data-measure-index="${idx}"]`).forEach(inp => inp.value = "");
         return;
     }
 }
 
 // ============================================================
-//  GESTION PHOTOS
+//  PROCESSUS PHOTO (Centralisé)
 // ============================================================
 async function handlePhotoUpload(e) {
     const key = e.target.dataset.photoKey;
+    if (!e.target.files[0]) return;
     await processPhoto(e.target.files[0], key);
+    // Activer le bouton annoter correspondant
+    const annBtn = document.querySelector(`[data-annotate="${key}"]`);
+    if (annBtn) annBtn.disabled = false;
 }
 
 async function processPhoto(file, key) {
@@ -171,15 +160,8 @@ async function processPhoto(file, key) {
     }
 }
 
-async function handleMeasurePhoto(e) {
-    const index = e.target.dataset.measureIndex;
-    const type = e.target.dataset.photoType;
-    const key = `mesure_${type}_${index}`;
-    await processPhoto(e.target.files[0], key);
-}
-
 // ============================================================
-//  POINTS DE MESURE — 2 PHOTOS + GRILLE COMPACTE
+//  POINTS DE MESURE
 // ============================================================
 function initMeasurePoints() {
     const container = document.getElementById("measurePointsContainer");
@@ -198,41 +180,60 @@ function addMeasurePoint(num = null) {
     div.dataset.point = count;
     div.innerHTML = `
         <h4>Point ${count}</h4>
-        <input type="text" class="point-lieu" placeholder="Lieu / Pièce" style="width:100%;margin-bottom:8px;">
+        <input type="text" class="point-lieu" id="mesure_lieu_${count}" placeholder="Lieu / Pièce" style="width:100%;margin-bottom:8px;">
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:12px 0;">
             <div>
                 <label>📷 Photo du lieu</label><br>
                 <input type="file" accept="image/*" data-measure-index="${count}" data-photo-type="lieu">
                 <img id="preview_mesure_lieu_${count}" class="photo-preview">
+                <button class="annotate-btn" data-annotate="mesure_lieu_${count}" disabled style="margin-top:5px;">✏ Annoter</button>
             </div>
             <div>
                 <label>📱 Copie écran mesure</label><br>
                 <input type="file" accept="image/*" data-measure-index="${count}" data-photo-type="screen">
                 <img id="preview_mesure_screen_${count}" class="photo-preview">
+                <button class="annotate-btn" data-annotate="mesure_screen_${count}" disabled style="margin-top:5px;">✏ Annoter</button>
             </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
-            <input type="text" class="measure-rsrp" placeholder="RSRP (dBm)">
-            <input type="text" class="measure-rsrq" placeholder="RSRQ (dB)">
-            <input type="text" class="measure-sinr" placeholder="SINR (dB)">
-            <input type="text" class="measure-down" placeholder="Débit desc (Mbps)">
-            <input type="text" class="measure-up" placeholder="Débit mont (Mbps)">
-            <input type="text" class="measure-band" placeholder="Bande / EARFCN">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;">
+            <input type="text" class="measure-rsrp" id="mesure_rsrp_${count}" placeholder="RSRP (dBm)">
+            <input type="text" class="measure-rsrq" id="mesure_rsrq_${count}" placeholder="RSRQ (dB)">
+            <input type="text" class="measure-sinr" id="mesure_sinr_${count}" placeholder="SINR (dB)">
+            <input type="text" class="measure-down" id="mesure_desc_${count}" placeholder="↓ Desc (Mbps)">
+            <input type="text" class="measure-up" id="mesure_mont_${count}" placeholder="↑ Mont (Mbps)">
+            <input type="text" class="measure-band" id="mesure_bande_${count}" placeholder="Bande">
         </div>
-        <div style="margin-top:8px;font-size:0.9rem;color:#666;">
-            <strong>Analyse :</strong> <span class="analysis-result">En attente de données</span>
-        </div>
+        <div style="margin-top:8px;"><strong>Analyse :</strong> <span class="analysis-result">En attente</span></div>
     `;
     container.appendChild(div);
 
+    // Gestion événements
     div.querySelectorAll('input[type="file"]').forEach(inp => inp.addEventListener("change", handleMeasurePhoto));
-
-    // Événements pour analyse automatique
     div.querySelectorAll('.measure-rsrp, .measure-rsrq, .measure-sinr').forEach(el => {
-        el.addEventListener('input', function() { analyzePoint(div); });
+        el.addEventListener('input', () => analyzePoint(div));
     });
+}
+
+async function handleMeasurePhoto(e) {
+    const index = e.target.dataset.measureIndex;
+    const type = e.target.dataset.photoType;
+    const key = `mesure_${type}_${index}`;
+    await processPhoto(e.target.files[0], key);
+    // Activer le bouton annoter correspondant
+    const annBtn = document.querySelector(`[data-annotate="${key}"]`);
+    if (annBtn) annBtn.disabled = false;
+}
+
+async function handleMeasurePhoto(e) {
+    const index = e.target.dataset.measureIndex;
+    const type = e.target.dataset.photoType;
+    const key = `mesure_${type}_${index}`;
+    await processPhoto(e.target.files[0], key);
+    // Activer le bouton annoter
+    // Le bouton annoter pour les mesures est géré différemment car ce sont des blocs dynamiques
+    // On peut activer le bouton globlal via window.Editor et la clé
 }
 
 function analyzePoint(group) {
@@ -264,14 +265,14 @@ function analyzePoint(group) {
     else if (sinr >= 0) score += 10;
     else score += 0;
 
-    let label, cls;
-    if (score >= 80) { label = "Très bonne qualité radio"; cls = "badge-green"; }
-    else if (score >= 60) { label = "Bonne qualité radio"; cls = "badge-blue"; }
-    else if (score >= 40) { label = "Qualité radio moyenne"; cls = "badge-orange"; }
-    else if (score >= 20) { label = "Qualité radio faible"; cls = "badge-red"; }
-    else { label = "Signal radio inutilisable"; cls = "badge-dark"; }
+    let label;
+    if (score >= 80) label = "Très bonne qualité";
+    else if (score >= 60) label = "Bonne qualité";
+    else if (score >= 40) label = "Qualité moyenne";
+    else if (score >= 20) label = "Qualité faible";
+    else label = "Signal inutilisable";
 
-    resultSpan.innerHTML = `<span class="radio-quality-badge ${cls}">${label}</span> (score ${score}/100)`;
+    resultSpan.textContent = `${label} (score ${score}/100)`;
     group.dataset.analysisPhrase = label;
 }
 
@@ -394,10 +395,10 @@ function updateEvacPointColor(div, pointIdx) {
     if (!resultSpan) return;
     const text = resultSpan.textContent;
     let color;
-    if (text.includes('Très bonne')) color = 'rgba(40,167,69,0.6)';
-    else if (text.includes('Bonne')) color = 'rgba(0,123,255,0.6)';
-    else if (text.includes('Moyenne')) color = 'rgba(253,126,20,0.6)';
-    else if (text.includes('Faible')) color = 'rgba(220,53,69,0.6)';
+    if (text.includes('Très bonne qualité')) color = 'rgba(40,167,69,0.6)';
+    else if (text.includes('Bonne qualité')) color = 'rgba(0,123,255,0.6)';
+    else if (text.includes('Qualité moyenne')) color = 'rgba(253,126,20,0.6)';
+    else if (text.includes('Qualité faible')) color = 'rgba(220,53,69,0.6)';
     else color = 'rgba(108,117,125,0.6)';
     div.style.background = color;
 }
@@ -428,6 +429,7 @@ function addCheminementItem() {
     `;
     container.appendChild(div);
 
+    // Gestion événements
     const fileInput = div.querySelector('input[type="file"]');
     fileInput.addEventListener('change', async function() {
         const idx2 = this.dataset.cheminementIndex;
@@ -437,15 +439,12 @@ function addCheminementItem() {
         if (annBtn) annBtn.disabled = false;
     });
 
-    // Annoter
+    // Annotation
     const annBtn = div.querySelector(`[data-annotate-cheminement="${idx}"]`);
     annBtn.addEventListener('click', function() {
         const idx2 = this.dataset.annotateCheminement;
         const key = `cheminement_${idx2}`;
-        if (!photoStore[key]) {
-            alert("Importez d'abord une photo.");
-            return;
-        }
+        if (!photoStore[key]) return alert("Importez d'abord une photo.");
         window.Editor.open(key, `Cheminement ${idx2}`);
     });
 }
@@ -486,32 +485,6 @@ function buildFilename() {
     if (raison) parts.push(raison);
     parts.push(date);
     return parts.join("_") + ".docx";
-}
-
-function resetForm() {
-    if (!confirm("Réinitialiser tout le formulaire ? Les photos importées seront perdues.")) return;
-    document.querySelectorAll("input, textarea, select").forEach(el => {
-        if (el.type === "checkbox" || el.type === "radio") el.checked = false;
-        else el.value = "";
-    });
-    Object.keys(photoStore).forEach(k => delete photoStore[k]);
-    document.querySelectorAll(".photo-preview").forEach(p => {
-        p.src = "";
-        p.classList.remove("shown");
-    });
-    document.querySelectorAll(".annotate-btn, [data-annotate-measure], [data-annotate-cheminement]").forEach(b => b.disabled = true);
-    document.querySelectorAll(".measure-point-group").forEach(el => el.remove());
-    measureCounter = 0;
-    initMeasurePoints();
-    document.getElementById('evacStageContainer').style.display = 'none';
-    document.getElementById('evacUploadArea').style.display = 'block';
-    document.querySelectorAll('.evac-point').forEach(el => el.remove());
-    evacPoints = [];
-    evacPointCounter = 0;
-    document.querySelectorAll('.cheminement-item').forEach(el => el.remove());
-    cheminementCounter = 1;
-    addCheminementItem();
-    showStatus("Formulaire réinitialisé.", "success");
 }
 
 function exportJSON() {
@@ -578,14 +551,14 @@ function collectFormData() {
 
     document.querySelectorAll('.measure-point-group').forEach(group => {
         const point = {
-            lieu: group.querySelector('.point-lieu').value,
-            rsrp: group.querySelector('.measure-rsrp').value,
-            rsrq: group.querySelector('.measure-rsrq').value,
-            sinr: group.querySelector('.measure-sinr').value,
-            down: group.querySelector('.measure-down').value,
-            up: group.querySelector('.measure-up').value,
-            band: group.querySelector('.measure-band').value,
-            analysis: group.querySelector('.analysis-result').textContent,
+            lieu: group.querySelector('.point-lieu').value || '',
+            rsrp: group.querySelector('.measure-rsrp').value || '',
+            rsrq: group.querySelector('.measure-rsrq').value || '',
+            sinr: group.querySelector('.measure-sinr').value || '',
+            down: group.querySelector('.measure-down').value || '',
+            up: group.querySelector('.measure-up').value || '',
+            band: group.querySelector('.measure-band').value || '',
+            analysis: group.querySelector('.analysis-result').textContent || '',
         };
         data.mesure_points.push(point);
     });
@@ -624,65 +597,68 @@ function populateForm(data) {
     });
 }
 
+function resetForm() {
+    if (!confirm("Réinitialiser tout le formulaire ? Les photos importées seront perdues.")) return;
+    document.querySelectorAll("input, textarea, select").forEach(el => {
+        if (el.type === "checkbox" || el.type === "radio") el.checked = false;
+        else el.value = "";
+    });
+    Object.keys(photoStore).forEach(k => delete photoStore[k]);
+    document.querySelectorAll(".photo-preview").forEach(p => {
+        p.src = "";
+        p.classList.remove("shown");
+    });
+    document.querySelectorAll(".annotate-btn, [data-annotate-measure], [data-annotate-cheminement]").forEach(b => b.disabled = true);
+    document.querySelectorAll(".measure-point-group").forEach(el => el.remove());
+    measureCounter = 0;
+    initMeasurePoints();
+    document.getElementById('evacStageContainer').style.display = 'none';
+    document.getElementById('evacUploadArea').style.display = 'block';
+    document.querySelectorAll('.evac-point').forEach(el => el.remove());
+    evacPoints = [];
+    evacPointCounter = 0;
+    document.querySelectorAll('.cheminement-item').forEach(el => el.remove());
+    cheminementCounter = 1;
+    addCheminementItem();
+    showStatus("Formulaire réinitialisé.", "success");
+}
+
 // ============================================================
 //  GÉNÉRATION WORD — COMPLÈTE
 // ============================================================
 async function generateDocument() {
     showStatus("Génération du document en cours...", "loading");
-
     try {
         const docxLib = window.docx || docx;
         const {
             Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-            ImageRun, Header, Footer, AlignmentType, BorderStyle, WidthType,
-            ShadingType, VerticalAlign, TabStopType
+            ImageRun, Header, AlignmentType, WidthType, BorderStyle, ShadingType
         } = docxLib;
 
         const COLOR_PRIMARY = "1F3864";
         const COLOR_ACCENT = "2E75B6";
-        const COLOR_HEADER_BG = "2E5481";
-        const COLOR_TABLE_HEADER = "DEEAF6";
         const COLOR_BORDER = "BFBFBF";
-        const COLOR_TEXT = "222222";
         const FONT = "Calibri";
-
-        const border = { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER };
-        const borders = { top: border, bottom: border, left: border, right: border };
 
         function P(text, opts = {}) {
             return new Paragraph({
-                alignment: opts.align || AlignmentType.LEFT,
-                spacing: opts.spacing || { before: 0, after: 80 },
-                children: [new TextRun({ text: text || "", bold: opts.bold || false, size: opts.size || 20, color: opts.color || COLOR_TEXT, font: FONT })]
+                children: [
+                    new TextRun({
+                        text: text || "",
+                        bold: opts.bold || false,
+                        size: opts.size || 22,
+                        color: opts.color || "000000",
+                        font: FONT
+                    })
+                ]
             });
         }
-        function emptyP() { return new Paragraph({ children: [new TextRun({ text: "" })] }); }
-        function cell(content, opts = {}) {
+
+        function cell(content, width) {
             return new TableCell({
-                borders,
-                width: { size: opts.width || 4680, type: WidthType.DXA },
-                children: [typeof content === "string" ? P(content) : content]
-            });
-        }
-
-        function makePhotoBlock(label, photoKey) {
-            const photo = photoStore[photoKey];
-            if (!photo) return null;
-            const ratio = Math.min(400 / (photo.naturalWidth || 400), 260 / (photo.naturalHeight || 260));
-            const w = Math.round((photo.naturalWidth || 400) * ratio);
-            const h = Math.round((photo.naturalHeight || 260) * ratio);
-
-            return new Table({
-                width: { size: 9360, type: WidthType.DXA },
-                rows: [new TableRow({
-                    children: [new TableCell({
-                        borders,
-                        children: [
-                            P("📷 " + label, { bold: true, color: COLOR_PRIMARY }),
-                            new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ data: photo.data, transformation: { width: w, height: h }, type: photo.type })] })
-                        ]
-                    })]
-                })]
+                borders: { top: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER }, bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER }, left: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER }, right: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER } },
+                width: { size: width || 4680, type: WidthType.DXA },
+                children: [typeof content === "string" ? P(content, { size: 20 }) : content]
             });
         }
 
@@ -692,145 +668,179 @@ async function generateDocument() {
                     width: { size: 9360, type: WidthType.DXA },
                     rows: [new TableRow({
                         children: [
-                            new TableCell({ children: [new Paragraph({ children: [new ImageRun({ data: b64ToUint8Array(LOGO_IPKONEKT_B64), transformation: { width: 110, height: 55 } })] })] }),
-                            new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G", bold: true, size: 28, color: COLOR_PRIMARY })] })] }),
-                            new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new ImageRun({ data: b64ToUint8Array(LOGO_BOUYGUES_B64), transformation: { width: 130, height: 55 } })] })] })
+                            new TableCell({
+                                children: [
+                                    new Paragraph({
+                                        children: [
+                                            new ImageRun({
+                                                data: b64ToUint8Array(LOGO_IPKONEKT_B64),
+                                                transformation: { width: 110, height: 55 }
+                                            })
+                                        ]
+                                    })
+                                ]
+                            }),
+                            new TableCell({
+                                children: [
+                                    new Paragraph({
+                                        alignment: AlignmentType.CENTER,
+                                        children: [
+                                            new TextRun({
+                                                text: "RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G",
+                                                bold: true,
+                                                size: 28,
+                                                color: COLOR_PRIMARY,
+                                                font: FONT
+                                            })
+                                        ]
+                                    })
+                                ]
+                            }),
+                            new TableCell({
+                                children: [
+                                    new Paragraph({
+                                        alignment: AlignmentType.RIGHT,
+                                        children: [
+                                            new ImageRun({
+                                                data: b64ToUint8Array(LOGO_BOUYGUES_B64),
+                                                transformation: { width: 130, height: 55 }
+                                            })
+                                        ]
+                                    })
+                                ]
+                            })
                         ]
                     })]
                 })]
             });
         }
 
+         // Construction du document
         const children = [];
+        children.push(P("RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G", { bold: true, size: 32, color: COLOR_PRIMARY }));
+        children.push(P(`Date : ${formatDateFR(val("date_audit"))}`));
+        children.push(P(""));
 
-        // Bandeau titre
-        children.push(makeRepeatingHeader());
-
-        // En-tête
-        const refTable = new Table({
+        // Informations client
+        children.push(P("1. INFORMATIONS ADMINISTRATIVES", { bold: true, size: 26, color: COLOR_PRIMARY }));
+        const infosTable = new Table({
             width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [3120, 3120, 3120],
             rows: [
-                new TableRow({
-                    tableHeader: true,
-                    children: [
-                        cell("Référence commande", { width: 3120, shading: COLOR_TABLE_HEADER }),
-                        cell("Auditeur / Intervenant", { width: 3120, shading: COLOR_TABLE_HEADER }),
-                        cell("Date d'audit", { width: 3120, shading: COLOR_TABLE_HEADER })
-                    ]
-                }),
-                new TableRow({
-                    children: [
-                        cell(val("ref_commande") || "—"),
-                        cell(val("auditeur") || "—"),
-                        cell(formatDateFR(val("date_audit")) || "—")
-                    ]
-                })
+                new TableRow({ children: [cell("Raison sociale", 3120), cell(val("raison_sociale") || "—", 6240)] }),
+                new TableRow({ children: [cell("Adresse", 3120), cell(val("adresse") || "—", 6240)] }),
+                new TableRow({ children: [cell("Code postal / Ville", 3120), cell(`${val("code_postal") || ""} ${val("ville") || ""}`, 6240)] }),
+                new TableRow({ children: [cell("Horaire d'ouverture", 3120), cell(val("horaire") || "—", 6240)] }),
+                new TableRow({ children: [cell("Procédure d'accès", 3120), cell(val("procedure_acces") || "—", 6240)] }),
+                new TableRow({ children: [cell("Téléphone site", 3120), cell(val("tel_site") || "—", 6240)] }),
+                new TableRow({ children: [cell("Contact", 3120), cell(`${val("contact_nom") || ""} - ${val("contact_fonction") || ""}\n${val("contact_tel") || ""} / ${val("contact_mail") || ""}`, 6240)] })
             ]
         });
-        children.push(refTable);
+        children.push(infosTable);
+        children.push(P(""));
 
-        // SECTION 1
-        children.push(P("1. Informations administratives du client", { bold: true, size: 26, color: COLOR_PRIMARY }));
-        const tableInfos = new Table({
+        // Informations techniques
+        children.push(P("2. INFORMATIONS TECHNIQUES CLIENT", { bold: true, size: 26, color: COLOR_PRIMARY }));
+        const techTable = new Table({
             width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [3120, 1560, 1560, 3120],
             rows: [
-                new TableRow({ children: [cell("Raison sociale du site audité", { width: 3120 }), cell(val("raison_sociale") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Adresse", { width: 3120 }), cell(val("adresse") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Code postal", { width: 3120 }), cell("CP : " + (val("code_postal") || "—"), { width: 1560 }), cell("Ville", { width: 1560, shading: COLOR_TABLE_HEADER }), cell(val("ville") || "—", { width: 3120 })] }),
-                new TableRow({ children: [cell("Horaire d'ouverture du site", { width: 3120 }), cell(val("horaire") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Procédure d'accès", { width: 3120 }), cell(val("procedure_acces") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Téléphone du site", { width: 3120 }), cell(val("tel_site") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Nom du contact client sur site", { width: 3120 }), cell(val("contact_nom") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Fonction", { width: 3120 }), cell(val("contact_fonction") || "—", { width: 6240, columnSpan: 3 })] }),
-                new TableRow({ children: [cell("Téléphone / Mail contact", { width: 3120 }), cell(val("contact_tel") || "—", { width: 1560 }), cell("Mail", { width: 1560, shading: COLOR_TABLE_HEADER }), cell(val("contact_mail") || "—", { width: 3120 })] })
+                new TableRow({ children: [cell("Bâtiment classé", 3120), cell(radioValue("classe") || "—", 6240)] }),
+                new TableRow({ children: [cell("Localisation baie", 3120), cell(val("localisation_baie") || "—", 6240)] }),
+                new TableRow({ children: [cell("Nbr prises électriques", 3120), cell(val("nb_prises") || "—", 6240)] }),
+                new TableRow({ children: [cell("Prise RJ45 disponible", 3120), cell(radioValue("rj45") || "—", 6240)] }),
+                new TableRow({ children: [cell("Devis desserte nécessaire", 3120), cell(radioValue("devis_desserte") || "—", 6240)] })
             ]
         });
-        children.push(tableInfos);
+        children.push(techTable);
+        children.push(P(""));
 
-        // SECTION 2
-        children.push(P("2. Informations techniques client", { bold: true, size: 26, color: COLOR_PRIMARY }));
-        const tableTech = new Table({
-            width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [3120, 6240],
-            rows: [
-                new TableRow({ children: [cell("Le bâtiment est-il classé ?", { width: 3120 }), cell(radioValue("classe") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Localisation de la baie informatique", { width: 3120 }), cell(val("localisation_baie") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Nombre de prises électriques disponibles", { width: 3120 }), cell(val("nb_prises") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Présence d'une prise RJ45 à l'emplacement optimal", { width: 3120 }), cell(radioValue("rj45") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Si non, devis desserte à prévoir", { width: 3120 }), cell(radioValue("devis_desserte") || "—", { width: 6240 })] })
-            ]
-        });
-        children.push(tableTech);
-
-        // SECTION 3 - Mesures
-        children.push(P("3. Mesures radio 4G/5G", { bold: true, size: 26, color: COLOR_PRIMARY }));
-        children.push(P("Les tests sont réalisés avec l'application Network Cell Info Lite."));
-        children.push(P("3 points de mesures à réaliser :"));
-        children.push(P("• Emplacement souhaité par le client"));
-        children.push(P("• Emplacement préconisé par le technicien"));
-        children.push(P("• À l'extérieur du bâtiment"));
-
+        // Mesures
+        children.push(P("3. MESURES RADIO 4G/5G", { bold: true, size: 26, color: COLOR_PRIMARY }));
         document.querySelectorAll('.measure-point-group').forEach((group, idx) => {
             const num = idx + 1;
             const lieu = group.querySelector('.point-lieu').value || `Point ${num}`;
-            const rsrp = group.querySelector('.measure-rsrp').value || "";
-            const rsrq = group.querySelector('.measure-rsrq').value || "";
-            const sinr = group.querySelector('.measure-sinr').value || "";
-            const down = group.querySelector('.measure-down').value || "";
-            const up = group.querySelector('.measure-up').value || "";
-            const band = group.querySelector('.measure-band').value || "";
-            const analysis = group.querySelector('.analysis-result').textContent || "";
+            const rsrp = group.querySelector('.measure-rsrp').value || "—";
+            const rsrq = group.querySelector('.measure-rsrq').value || "—";
+            const sinr = group.querySelector('.measure-sinr').value || "—";
+            const down = group.querySelector('.measure-down').value || "—";
+            const up = group.querySelector('.measure-up').value || "—";
+            const band = group.querySelector('.measure-band').value || "—";
+            const analysis = group.querySelector('.analysis-result').textContent || "En attente";
 
-            children.push(P(`Mesure ${num} — ${lieu}`, { bold: true, size: 22, color: COLOR_ACCENT }));
-            const tableMesure = new Table({
+            children.push(P(`Point ${num} — ${lieu}`, { bold: true, size: 22, color: COLOR_ACCENT }));
+            const mesureTable = new Table({
                 width: { size: 9360, type: WidthType.DXA },
-                columnWidths: [4680, 4680],
                 rows: [
-                    new TableRow({ tableHeader: true, children: [cell("Paramètre", { width: 4680 }), cell("Valeur", { width: 4680 })] }),
-                    new TableRow({ children: [cell("RSRP (dBm)", { width: 4680 }), cell(rsrp || "—", { width: 4680 })] }),
-                    new TableRow({ children: [cell("RSRQ (dB)", { width: 4680 }), cell(rsrq || "—", { width: 4680 })] }),
-                    new TableRow({ children: [cell("SINR (dB)", { width: 4680 }), cell(sinr || "—", { width: 4680 })] }),
-                    new TableRow({ children: [cell("Débit descendant (Mbps)", { width: 4680 }), cell(down || "—", { width: 4680 })] }),
-                    new TableRow({ children: [cell("Débit montant (Mbps)", { width: 4680 }), cell(up || "—", { width: 4680 })] }),
-                    new TableRow({ children: [cell("Bande", { width: 4680 }), cell(band || "—", { width: 4680 })] })
+                    new TableRow({ tableHeader: true, children: [cell("Paramètre", 4680), cell("Valeur", 4680)] }),
+                    new TableRow({ children: [cell("RSRP (dBm)", 4680), cell(rsrp, 4680)] }),
+                    new TableRow({ children: [cell("RSRQ (dB)", 4680), cell(rsrq, 4680)] }),
+                    new TableRow({ children: [cell("SINR (dB)", 4680), cell(sinr, 4680)] }),
+                    new TableRow({ children: [cell("Débit descendant (Mbps)", 4680), cell(down, 4680)] }),
+                    new TableRow({ children: [cell("Débit montant (Mbps)", 4680), cell(up, 4680)] }),
+                    new TableRow({ children: [cell("Bande", 4680), cell(band, 4680)] })
                 ]
             });
-            children.push(tableMesure);
+            children.push(mesureTable);
             children.push(P("Analyse : " + analysis));
 
-            const key1 = `mesure_lieu_${num}`;
-            if (photoStore[key1]) {
-                const pb = makePhotoBlock(`Photo du lieu - Point ${num}`, key1);
-                if (pb) children.push(pb);
+            // Photos
+            const keyLieu = `mesure_lieu_${num}`;
+            if (photoStore[keyLieu]) {
+                children.push(P("Photo du lieu :", { bold: true }));
+                children.push(new Paragraph({
+                    children: [
+                        new ImageRun({
+                            data: photoStore[keyLieu].data,
+                            transformation: { width: 400, height: 300 },
+                            type: photoStore[keyLieu].type
+                        })
+                    ]
+                }));
             }
-            const key2 = `mesure_screen_${num}`;
-            if (photoStore[key2]) {
-                const pb = makePhotoBlock(`Copie écran - Point ${num}`, key2);
-                if (pb) children.push(pb);
+            const keyScreen = `mesure_screen_${num}`;
+            if (photoStore[keyScreen]) {
+                children.push(P("Copie écran :", { bold: true }));
+                children.push(new Paragraph({
+                    children: [
+                        new ImageRun({
+                            data: photoStore[keyScreen].data,
+                            transformation: { width: 400, height: 300 },
+                            type: photoStore[keyScreen].type
+                        })
+                    ]
+                }));
             }
+            children.push(P(""));
         });
 
-        // SECTION 4 - Plan d'évacuation
-        children.push(P("4. Plan d'évacuation", { bold: true, size: 26, color: COLOR_PRIMARY }));
+        // Plan d'évacuation
+        children.push(P("4. PLAN D'ÉVACUATION", { bold: true, size: 26, color: COLOR_PRIMARY }));
         if (photoStore['evac_plan']) {
-            const pb = makePhotoBlock("Plan d'évacuation", "evac_plan");
-            if (pb) children.push(pb);
-            children.push(P("Points de mesure positionnés sur le plan :"));
-            evacPoints.forEach((p, idx) => {
-                const pointNum = p.pointId;
-                const group = document.querySelector(`.measure-point-group[data-point="${pointNum}"]`);
-                const lieu = group ? group.querySelector('.point-lieu').value : `Point ${pointNum}`;
+            children.push(P("Plan importé :", { bold: true }));
+            children.push(new Paragraph({
+                children: [
+                    new ImageRun({
+                        data: photoStore['evac_plan'].data,
+                        transformation: { width: 500, height: 350 },
+                        type: photoStore['evac_plan'].type
+                    })
+                ]
+            }));
+        }
+        if (evacPoints.length > 0) {
+            children.push(P("Points positionnés :"));
+            evacPoints.forEach(p => {
+                const group = document.querySelector(`.measure-point-group[data-point="${p.pointId}"]`);
+                const lieu = group ? group.querySelector('.point-lieu').value : `Point ${p.pointId}`;
                 const analysis = group ? group.querySelector('.analysis-result').textContent : "";
-                children.push(P(`• Point ${pointNum} — ${lieu} : ${analysis}`));
+                children.push(P(`• Point ${p.pointId} — ${lieu} : ${analysis}`));
             });
         } else {
-            children.push(P("Aucun plan d'évacuation importé.", { italics: true }));
+            children.push(P("Aucun point positionné.", { italics: true }));
         }
+        children.push(P(""));
 
-        // SECTION 5 - Cheminement
-        children.push(P("5. Cheminement câble / Installation", { bold: true, size: 26, color: COLOR_PRIMARY }));
+        // Cheminement
+        children.push(P("5. CHEMINEMENT CÂBLE / INSTALLATION", { bold: true, size: 26, color: COLOR_PRIMARY }));
         const cheminementItems = document.querySelectorAll('.cheminement-item');
         if (cheminementItems.length === 0) {
             children.push(P("Aucune photo de cheminement ajoutée.", { italics: true }));
@@ -839,30 +849,39 @@ async function generateDocument() {
                 const key = `cheminement_${idx + 1}`;
                 const comment = item.querySelector('.cheminement-comment').value || "";
                 if (photoStore[key]) {
-                    const pb = makePhotoBlock(`Cheminement ${idx + 1}`, key);
-                    if (pb) children.push(pb);
+                    children.push(P(`Photo ${idx + 1}`, { bold: true }));
+                    children.push(new Paragraph({
+                        children: [
+                            new ImageRun({
+                                data: photoStore[key].data,
+                                transformation: { width: 450, height: 280 },
+                                type: photoStore[key].type
+                            })
+                        ]
+                    }));
                 }
                 if (comment) {
                     children.push(P("Commentaire : " + comment, { italics: true }));
                 }
+                children.push(P(""));
             });
         }
 
-        // SECTION 6 - Synthèse
-        children.push(P("6. Synthèse de l'intervention", { bold: true, size: 26, color: COLOR_PRIMARY }));
-        const tableSynth = new Table({
+        // Synthèse
+        children.push(P("6. SYNTHÈSE DE L'INTERVENTION", { bold: true, size: 26, color: COLOR_PRIMARY }));
+        const synthTable = new Table({
             width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [3120, 6240],
             rows: [
-                new TableRow({ children: [cell("Heure de début", { width: 3120 }), cell(val("heure_debut") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Heure de fin", { width: 3120 }), cell(val("heure_fin") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Durée totale", { width: 3120 }), cell(val("duree_totale") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Nombre de techniciens", { width: 3120 }), cell(val("nb_techniciens") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Nacelle à prévoir", { width: 3120 }), cell(radioValue("nacelle_prevoir") || "—", { width: 6240 })] }),
-                new TableRow({ children: [cell("Besoin d'une échelle", { width: 3120 }), cell(radioValue("echelle_prevoir") || "—", { width: 6240 })] })
+                new TableRow({ children: [cell("Heure début", 3120), cell(val("heure_debut") || "—", 6240)] }),
+                new TableRow({ children: [cell("Heure fin", 3120), cell(val("heure_fin") || "—", 6240)] }),
+                new TableRow({ children: [cell("Durée", 3120), cell(val("duree_totale") || "—", 6240)] }),
+                new TableRow({ children: [cell("Techniciens", 3120), cell(val("nb_techniciens") || "—", 6240)] }),
+                new TableRow({ children: [cell("Nacelle à prévoir", 3120), cell(radioValue("nacelle_prevoir") || "—", 6240)] }),
+                new TableRow({ children: [cell("Échelle nécessaire", 3120), cell(radioValue("echelle_prevoir") || "—", 6240)] })
             ]
         });
-        children.push(tableSynth);
+        children.push(synthTable);
+        children.push(P(""));
 
         // Observations
         children.push(P("Observations / Réserves / Points à lever", { bold: true, size: 22, color: COLOR_ACCENT }));
@@ -870,9 +889,10 @@ async function generateDocument() {
 
         // Signature
         children.push(P("Signature technicien / auditeur", { bold: true, size: 22, color: COLOR_ACCENT }));
-        children.push(P("Nom : " + (val("signataire_nom") || "_______________________________")));
-        children.push(P("Date : " + (formatDateFR(val("signataire_date")) || "_______________________________")));
+        children.push(P(`Nom : ${val("signataire_nom") || "_______________________________"}`));
+        children.push(P(`Date : ${formatDateFR(val("signataire_date")) || "_______________________________"}`));
 
+        // Assemblage final
         const doc = new Document({
             sections: [{
                 properties: {
@@ -880,6 +900,7 @@ async function generateDocument() {
                         margin: { top: 1440, right: 1080, bottom: 1080, left: 1080 }
                     }
                 },
+                headers: { default: makeRepeatingHeader() },
                 children: children
             }]
         });
@@ -901,7 +922,7 @@ function b64ToUint8Array(b64) {
     return bytes;
 }
 
-// Exposition globale
+// Exposition des fonctions globales
 window.generateDocument = generateDocument;
 window.resetForm = resetForm;
 window.exportJSON = exportJSON;
