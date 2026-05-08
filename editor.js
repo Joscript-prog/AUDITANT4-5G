@@ -174,9 +174,15 @@ const Editor = (function () {
 
   // ---- Ajouter une flèche ----
   function addArrow() {
-    const color     = document.getElementById("arrowColor").value;
-    const thickness = parseInt(document.getElementById("arrowThickness").value, 10) || 6;
-    const headSize  = parseInt(document.getElementById("arrowHeadSize").value, 10) || 18;
+    // Récupération sécurisée — fallback si les inputs n'existent pas dans le HTML
+    const colorEl = document.getElementById("arrowColor");
+    const thickEl = document.getElementById("arrowThickness");
+    const headEl  = document.getElementById("arrowHeadSize");
+    // Si l'élément sélectionné est déjà une flèche, on reprend ses derniers paramètres
+    const lastArrow = elements.slice().reverse().find(e => e.data && e.data.type === "arrow");
+    const color     = (colorEl && colorEl.value) || (lastArrow ? lastArrow.data.color : "#FF0000");
+    const thickness = parseInt(thickEl && thickEl.value, 10) || (lastArrow ? lastArrow.data.thickness : 6);
+    const headSize  = parseInt(headEl  && headEl.value,  10) || (lastArrow ? lastArrow.data.headSize  : 18);
 
     const wrapper = document.createElement("div");
     wrapper.className = "editor-element arrow-element";
@@ -206,6 +212,101 @@ const Editor = (function () {
     renderArrow(wrapper, data);
     attachHandlers(wrapper);
     select(wrapper);
+  }
+
+  // ---- Ajouter un cercle (rouge, transparent au centre) ----
+  let circleColorIdx = 0;
+  function addCircle() {
+    // Cercle SVG inline (rouge épais par défaut, fond transparent)
+    const colors = ["#FF0000", "#FFFF00", "#00B050", "#0070C0", "#FFFFFF", "#000000"];
+    const color = colors[0]; // rouge par défaut, on peut changer ensuite via swatch
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="44" fill="none" stroke="${color}" stroke-width="6"/>
+    </svg>`;
+    const dataUrl = "data:image/svg+xml;base64," + btoa(svg);
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "editor-element";
+
+    const img = document.createElement("img");
+    img.src = dataUrl;
+    img.draggable = false;
+    wrapper.appendChild(img);
+
+    const initialNatW = stageW * 0.20;
+    const data = {
+      type: "image",
+      src: dataUrl,
+      assetKey: "_circle",
+      x: stageW * 0.4,
+      y: stageH * 0.4,
+      w: initialNatW,
+      h: initialNatW,
+      rotation: 0,
+      flipH: false,
+      flipV: false,
+    };
+
+    wrapper.dataset.uid = uid();
+    wrapper._data = data;
+    stageEl.appendChild(wrapper);
+    elements.push({ el: wrapper, data });
+
+    attachHandlers(wrapper);
+    select(wrapper);
+    applyTransform(wrapper, data);
+  }
+
+  // ---- Ajouter un point de mesure (dot rouge + label P1, P2...) ----
+  let measurePointCounter = 0;
+  function addMeasurePoint() {
+    measurePointCounter++;
+    const label = "P" + measurePointCounter;
+
+    // SVG : dot rouge + label numéroté au-dessus
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+      <rect x="32" y="0" width="56" height="34" rx="6" ry="6" fill="white" stroke="#1F4E79" stroke-width="2"/>
+      <text x="60" y="24" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="#1F4E79">${label}</text>
+      <line x1="60" y1="34" x2="60" y2="80" stroke="#1F4E79" stroke-width="3"/>
+      <circle cx="60" cy="100" r="22" fill="#DC2626" stroke="white" stroke-width="6"/>
+      <circle cx="60" cy="100" r="22" fill="none" stroke="#7F1D1D" stroke-width="2"/>
+    </svg>`;
+    const dataUrl = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "editor-element";
+
+    const img = document.createElement("img");
+    img.src = dataUrl;
+    img.draggable = false;
+    wrapper.appendChild(img);
+
+    // Largeur initiale ~10% de la photo (140 de haut, ratio 120/140)
+    const initialNatW = stageW * 0.10;
+    const ratio = 140 / 120; // hauteur / largeur du SVG
+
+    const data = {
+      type: "image",
+      src: dataUrl,
+      assetKey: "_measurePoint",
+      label: label,
+      x: stageW * 0.5,
+      y: stageH * 0.5,
+      w: initialNatW,
+      h: initialNatW * ratio,
+      rotation: 0,
+      flipH: false,
+      flipV: false,
+    };
+
+    wrapper.dataset.uid = uid();
+    wrapper._data = data;
+    stageEl.appendChild(wrapper);
+    elements.push({ el: wrapper, data });
+
+    attachHandlers(wrapper);
+    select(wrapper);
+    applyTransform(wrapper, data);
   }
 
   function applyTextStyle(el, s) {
@@ -875,21 +976,41 @@ const Editor = (function () {
     setupStageClick();
     setupKeyboard();
 
+    // Helper pour attacher un listener seulement si l'élément existe
+    const on = (id, evt, fn) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener(evt, fn);
+    };
+
     // Boutons "Ajouter" assets
     document.querySelectorAll("[data-add-asset]").forEach(btn => {
       btn.addEventListener("click", () => addAsset(btn.dataset.addAsset));
     });
 
-    // Bouton "Ajouter texte"
-    document.getElementById("btnAddText").addEventListener("click", addText);
+    // Bouton "Ajouter texte" (gros bouton bleu en bas du panel texte)
+    on("btnAddText", "click", addText);
 
-    // Bouton "Ajouter flèche"
-    const btnArrow = document.getElementById("btnAddArrow");
-    if (btnArrow) btnArrow.addEventListener("click", addArrow);
+    // Bouton "Ajouter flèche" (legacy, peut ne pas exister)
+    on("btnAddArrow", "click", addArrow);
+
+    // ---- BOUTONS SIDEBAR (toolAddXxx) ----
+    on("toolAddArrow", "click", addArrow);
+    on("toolAddCircle", "click", addCircle);
+    on("toolAddText", "click", () => {
+      // Met le focus sur le champ texte ; si l'utilisateur a déjà tapé qqch, on ajoute direct
+      const txt = document.getElementById("textInput");
+      if (txt && txt.value.trim()) {
+        addText();
+      } else if (txt) {
+        txt.focus();
+        txt.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+    on("toolAddMeasurePoint", "click", addMeasurePoint);
 
     // Aperçu live texte
     ["textInput","textFont","textSize","textColor","textStroke","textBold","textShadow"].forEach(id => {
-      document.getElementById(id).addEventListener("input", updateTextPreview);
+      on(id, "input", updateTextPreview);
     });
 
     // Swatches couleur (texte)
