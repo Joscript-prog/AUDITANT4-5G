@@ -473,10 +473,22 @@ function getAllMeasurePoints() {
 }
 
 // Donne le nom à afficher pour un point (lieu ou fallback)
+// Donne le nom à afficher pour un point (avec préfixe 4G/5G)
 function getPointDisplayName(group) {
     if (!group) return "Point non nommé";
-    const lieu = (group.querySelector('.point-lieu')?.value || "").trim();
-    return lieu || "Point non nommé";
+
+    // Détermination du préfixe techno
+    const tech = (group.dataset.tech === "5g") ? "5G" : "4G";
+
+    const lieuInput = group.querySelector('.point-lieu');
+    const lieu = lieuInput ? lieuInput.value.trim() : "";
+
+    if (lieu) {
+        return `${tech} - ${lieu}`;
+    } else {
+        const pointNum = group.dataset.point || "X";
+        return `${tech} - Point ${pointNum}`;
+    }
 }
 
 // Construit / met à jour la liste des points disponibles à placer sur le plan
