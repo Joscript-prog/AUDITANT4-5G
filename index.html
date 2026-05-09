@@ -1117,22 +1117,6 @@
             box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
             pointer-events: none;
         }
-        .evac-pin {
-            position: absolute;
-            top: -4px;
-            left: 50%;
-            transform: translate(-50%, -100%);
-            background: white;
-            color: #1f4e79;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 700;
-            font-size: 0.78rem;
-            border: 1.5px solid #1f4e79;
-            white-space: nowrap;
-            pointer-events: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
         .evac-resize {
             position: absolute;
             bottom: -4px;
@@ -1193,6 +1177,189 @@
             display: flex;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        /* --- Sous-blocs techno 4G / 5G --- */
+        .tech-block {
+            border: 1px solid #d8e2ec;
+            border-radius: 8px;
+            padding: 14px 16px 18px;
+            background: #ffffff;
+            margin-top: 14px;
+        }
+        .tech-block[data-tech="4g"] {
+            border-left: 4px solid #2e75b6;
+        }
+        .tech-block[data-tech="5g"] {
+            border-left: 4px solid #16a34a;
+        }
+        .tech-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .tech-title {
+            margin: 0;
+            font-size: 1rem;
+            color: #1f4e79;
+            font-style: normal;
+            font-weight: 700;
+        }
+        .tech-block[data-tech="5g"] .tech-title {
+            color: #166534;
+        }
+        .measure-points-container {
+            display: block;
+        }
+
+        /* --- Plan d'évacuation : label CENTRÉ près du cercle --- */
+        .evac-pin {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            /* Décalage léger en haut-droite par rapport au centre */
+            transform: translate(8%, -135%);
+            background: white;
+            color: #1f4e79;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.78rem;
+            border: 1.5px solid #1f4e79;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* Indicateur techno coloré sur le badge label */
+        .evac-pin .pin-tech {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .evac-pin .pin-tech.tech-4g { background: #2e75b6; }
+        .evac-pin .pin-tech.tech-5g { background: #16a34a; }
+
+        /* --- Liste des points disponibles à placer sur le plan --- */
+        .evac-picker-title {
+            font-weight: 700;
+            color: #1f4e79;
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+        }
+        .evac-picker-help {
+            font-size: 0.8rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .evac-points-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .evac-pp-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #f8fafc;
+            border: 1.5px solid #d0dae5;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f4e79;
+            transition: all 0.15s;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .evac-pp-item:hover {
+            background: #eef4fa;
+            border-color: #2e75b6;
+        }
+        .evac-pp-item .pp-tech-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .evac-pp-item .pp-tech-dot.tech-4g { background: #2e75b6; }
+        .evac-pp-item .pp-tech-dot.tech-5g { background: #16a34a; }
+        .evac-pp-item .pp-name {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .evac-pp-item .pp-tech-tag {
+            font-size: 0.72rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .evac-pp-item.placed .pp-tech-tag {
+            color: #94a3b8;
+        }
+        .evac-pp-item.placed {
+            background: #e5e7eb;
+            border-color: #cbd5e1;
+            color: #94a3b8;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+        .evac-pp-item.placed:hover {
+            background: #e5e7eb;
+            border-color: #cbd5e1;
+        }
+        .evac-pp-item.placed .pp-tech-dot {
+            opacity: 0.4;
+        }
+        .evac-pp-empty {
+            font-size: 0.85rem;
+            color: #888;
+            font-style: italic;
+        }
+
+        /* --- Popup générique plan évacuation --- */
+        .evac-popup-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .evac-popup-overlay.shown {
+            display: flex;
+        }
+        .evac-popup-modal {
+            background: white;
+            border-radius: 10px;
+            padding: 24px 28px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+        .evac-popup-icon {
+            font-size: 2.4rem;
+            margin-bottom: 10px;
+        }
+        .evac-popup-text {
+            font-size: 0.95rem;
+            color: #1f2937;
+            margin: 0 0 18px 0;
+            line-height: 1.4;
+        }
+        .evac-popup-modal .btn-primary {
+            padding: 8px 22px;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -1309,7 +1476,7 @@
             <h2>3. Mesures radio 4G/5G</h2>
             <div class="info-box">
                 Les tests sont réalisés avec l'application <b>Network Cell Info Lite</b>.<br>
-                3 points de mesures sont à réaliser (3 en 4G et 3 en 5G) :<br>
+                Réaliser <b>3 points de mesures en 4G</b> et <b>3 points de mesures en 5G</b> :<br>
                 • Emplacement souhaité par le client<br>
                 • Emplacement préconisé par le technicien<br>
                 • À l'extérieur du bâtiment
@@ -1360,20 +1527,34 @@
                 </tbody>
             </table>
 
-            <!-- Points de mesure dynamiques -->
-            <div id="measurePointsContainer"></div>
+            <!-- ========== 4G ========== -->
+            <div class="tech-block" data-tech="4g">
+                <div class="tech-header">
+                    <h3 class="tech-title">📡 Mesures 4G</h3>
+                </div>
+                <div id="measurePointsContainer4G" class="measure-points-container"></div>
+                <button class="btn-secondary add-mp-btn" id="addMeasurePointBtn4G" style="margin-top:10px;">
+                    ➕ Ajouter un point de mesure 4G
+                </button>
+            </div>
 
-            <!-- Bouton pour ajouter des points -->
-            <button class="btn-secondary" id="addMeasurePointBtn" style="margin-top:14px;">
-                ➕ Ajouter un point de mesure
-            </button>
+            <!-- ========== 5G ========== -->
+            <div class="tech-block" data-tech="5g" style="margin-top:24px;">
+                <div class="tech-header">
+                    <h3 class="tech-title">🛰️ Mesures 5G</h3>
+                </div>
+                <div id="measurePointsContainer5G" class="measure-points-container"></div>
+                <button class="btn-secondary add-mp-btn" id="addMeasurePointBtn5G" style="margin-top:10px;">
+                    ➕ Ajouter un point de mesure 5G
+                </button>
+            </div>
         </div>
 
         <!-- ===== SECTION 4 - PLAN D'ÉVACUATION INTERACTIF ===== -->
         <div class="section">
             <h2>4. Plan d'évacuation</h2>
             <div class="info-box">
-                Importez une photo du plan d'évacuation. Cliquez ensuite sur le bouton <b>"Ajouter un point de mesure"</b> pour placer un point sur le plan. Les points seront automatiquement colorés selon la qualité radio globale de chaque point.
+                Importez une photo du plan d'évacuation. Une fois la photo importée, choisissez dans la liste les points de mesure (issus de la section 3) à placer sur le plan. Les points sont automatiquement colorés selon la qualité radio globale.
             </div>
             <label class="evacuation-upload-area" id="evacUploadArea" for="evacFileInput">
                 <span style="font-size:2rem;">📷</span>
@@ -1386,8 +1567,21 @@
                     <img id="evacBgImage" alt="Plan d'évacuation">
                 </div>
             </div>
-            <div style="margin-top:10px;">
-                <button class="btn-secondary" id="addEvacPointBtn">➕ Ajouter un point de mesure sur le plan</button>
+
+            <!-- Liste des points disponibles à placer -->
+            <div id="evacPointsPickerWrap" style="display:none; margin-top:14px;">
+                <div class="evac-picker-title">📍 Points disponibles à placer sur le plan</div>
+                <div class="evac-picker-help">Cliquez sur un point pour le placer. Une fois placé, il devient grisé. Si vous le supprimez du plan, il redevient disponible.</div>
+                <div id="evacPointsPicker" class="evac-points-picker"></div>
+            </div>
+        </div>
+
+        <!-- Popup info plan d'évacuation -->
+        <div id="evacPopup" class="evac-popup-overlay">
+            <div class="evac-popup-modal">
+                <div class="evac-popup-icon">⚠️</div>
+                <p class="evac-popup-text" id="evacPopupText">Vous n'avez plus de points de mesure disponibles à ajouter.</p>
+                <button class="btn-primary" onclick="closeEvacPopup()">OK</button>
             </div>
         </div>
 
