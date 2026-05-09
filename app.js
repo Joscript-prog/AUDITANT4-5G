@@ -168,7 +168,21 @@ async function processPhoto(file, key) {
             reader.onerror = reject;
             reader.readAsDataURL(file);
         });
-        photoStore[key] = { data: u8, type: type, dataUrl: dataUrl };
+        // Récupérer les dimensions réelles
+        const img = new Image();
+        img.src = dataUrl;
+        await new Promise(resolve => { img.onload = resolve; });
+        const { width: naturalWidth, height: naturalHeight } = img;
+        photoStore[key] = {
+            data: u8,
+            type: type,
+            dataUrl: dataUrl,
+            naturalWidth: naturalWidth,
+            naturalHeight: naturalHeight,
+            originalDataUrl: null,
+            annotations: null,
+            annotated: false
+        };
         const preview = document.getElementById("preview_" + key);
         if (preview) {
             preview.src = dataUrl;
@@ -1301,73 +1315,83 @@ async function generateDocument() {
         ]
     });
 
-    // ---------- 3.A — 4G ----------
-    const groups4G = Array.from(document.querySelectorAll('#measurePointsContainer4G .measure-point-group'));
-    if (groups4G.length > 0) {
-        children.push(techSubTitle("3.A — Mesures 4G", TECH_COLOR_4G));
-        groups4G.forEach((group, idx) => {
-            children.push(buildMeasureSectionBlock(group, "3.A", idx + 1));
-            children.push(P("", { spacing: { before: 60, after: 60 } }));
-        });
-    }
+   // ---------- 3.A — 4G ----------
+const groups4G = Array.from(document.querySelectorAll('#measurePointsContainer4G .measure-point-group'));
+if (groups4G.length > 0) {
+    children.push(techSubTitle("3.A — Mesures 4G", TECH_COLOR_4G));
+    groups4G.forEach((group, idx) => {
+        children.push(buildMeasureSectionBlock(group, "3.A", idx + 1));
+        children.push(P("", { spacing: { before: 10, after: 10 } })); // espace réduit
+    });
+}
 
-    // ---------- 3.B — 5G ----------
-    const groups5G = Array.from(document.querySelectorAll('#measurePointsContainer5G .measure-point-group'));
-    if (groups5G.length > 0) {
-        children.push(techSubTitle("3.B — Mesures 5G", TECH_COLOR_5G));
-        groups5G.forEach((group, idx) => {
-            children.push(buildMeasureSectionBlock(group, "3.B", idx + 1));
-            children.push(P("", { spacing: { before: 60, after: 60 } }));
-        });
-    }
+// ---------- 3.B — 5G ----------
+const groups5G = Array.from(document.querySelectorAll('#measurePointsContainer5G .measure-point-group'));
+if (groups5G.length > 0) {
+    children.push(techSubTitle("3.B — Mesures 5G", TECH_COLOR_5G));
+    groups5G.forEach((group, idx) => {
+        children.push(buildMeasureSectionBlock(group, "3.B", idx + 1));
+        children.push(P("", { spacing: { before: 10, after: 10 } })); // espace réduit
+    });
+}
 
-    if (groups4G.length === 0 && groups5G.length === 0) {
-        children.push(P("(Aucun point de mesure renseigné)", { italics: true, color: "999999" }));
-    }
+if (groups4G.length === 0 && groups5G.length === 0) {
+    children.push(P("(Aucun point de mesure renseigné)", { italics: true, color: "999999" }));
+}
 
     // Helper : bandeau photo "intérieur" (utilisé pour côte à côte)
-    function photoBannerInner(title, key, w) {
-        const photo = photoStore[key];
-        return new Table({
-            width: { size: w, type: WidthType.DXA },
-            columnWidths: [w],
-            rows: [
-                new TableRow({ children: [new TableCell({
-                    width: { size: w, type: WidthType.DXA },
-                    shading: { fill: COLOR_PHOTO_BG, type: ShadingType.CLEAR, color: "auto" },
-                    margins: { top: 80, bottom: 80, left: 140, right: 140 },
-                    borders: {
-                        top: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
-                        bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
-                        left: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
-                        right: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER }
-                    },
-                    children: [new Paragraph({
-                        children: [new TextRun({ text: `📷 ${title}`, bold: true, size: 20, color: COLOR_TITLE, font: "Calibri" })]
+   function photoBannerInner(title, key, maxWidthTwips) {
+    const photo = photoStore[key];
+    if (!photo) return new Paragraph({ text: "(Photo non fournie)", italics: true, color: "999999" });
+
+    // Convertir la largeur max de twips en pixels approximatifs (1 pixel ≈ 15 twips)
+    // La largeur max en pixels sera limitée à 400 pour éviter des images énormes
+    let maxWidthPx = Math.min(400, maxWidthTwips / 15);
+    // Largeur réelle de l'image (ne peut pas dépasser maxWidthPx)
+    const width = Math.min(maxWidthPx, photo.naturalWidth);
+    // Hauteur proportionnelle
+    const height = (width / photo.naturalWidth) * photo.naturalHeight;
+
+    return new Table({
+        width: { size: maxWidthTwips, type: WidthType.DXA },
+        columnWidths: [maxWidthTwips],
+        rows: [
+            new TableRow({ children: [new TableCell({
+                width: { size: maxWidthTwips, type: WidthType.DXA },
+                shading: { fill: COLOR_PHOTO_BG, type: ShadingType.CLEAR, color: "auto" },
+                margins: { top: 80, bottom: 80, left: 140, right: 140 },
+                borders: {
+                    top: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
+                    bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
+                    left: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
+                    right: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER }
+                },
+                children: [new Paragraph({
+                    children: [new TextRun({ text: `📷 ${title}`, bold: true, size: 20, color: COLOR_TITLE, font: "Calibri" })]
+                })]
+            })]}),
+            new TableRow({ children: [new TableCell({
+                width: { size: maxWidthTwips, type: WidthType.DXA },
+                margins: { top: 120, bottom: 120, left: 120, right: 120 },
+                verticalAlign: VerticalAlign.CENTER,
+                borders: {
+                    top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                    bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
+                    left: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
+                    right: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER }
+                },
+                children: [new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [new ImageRun({
+                        data: photo.data,
+                        transformation: { width: width, height: height },
+                        type: photo.type
                     })]
-                })]}),
-                new TableRow({ children: [new TableCell({
-                    width: { size: w, type: WidthType.DXA },
-                    margins: { top: 120, bottom: 120, left: 120, right: 120 },
-                    verticalAlign: VerticalAlign.CENTER,
-                    borders: {
-                        top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-                        bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
-                        left: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER },
-                        right: { style: BorderStyle.SINGLE, size: 6, color: COLOR_PHOTO_BORDER }
-                    },
-                    children: [new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        children: [new ImageRun({
-                            data: photo.data,
-                            transformation: { width: 250, height: 200 },
-                            type: photo.type
-                        })]
-                    })]
-                })]})
-            ]
-        });
-    }
+                })]
+            })]})
+        ]
+    });
+}
 
     // === SECTION 4 : PLAN D'ÉVACUATION (avec points superposés) ===
     children.push(sectionTitle(4, "Plan d'évacuation – Localisation des points de mesure"));
