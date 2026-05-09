@@ -4,9 +4,13 @@
 // ============================================================
 
 const photoStore = {};
-let measureCounter = 0;
-let evacPointCounter = 0;
+// Compteurs séparés par techno (pour numérotation interne stable)
+let measureCounter4G = 0;
+let measureCounter5G = 0;
 let cheminementCounter = 0;
+
+// État des points placés sur le plan évac
+// Chaque entrée : { pointId: "4g-1" | "5g-2", leftPct, topPct, size }
 let evacPoints = [];
 
 // ---------- Couleurs / constantes du style Starlink ----------
@@ -18,6 +22,10 @@ const COLOR_PHOTO_BORDER= "BDD7EE";
 const COLOR_BORDER      = "BFBFBF";
 const COLOR_FOOTER      = "808080";
 const COLOR_WHITE       = "FFFFFF";
+
+// Couleurs accent par techno (pour pickers et titres)
+const TECH_COLOR_4G = "2E75B6";
+const TECH_COLOR_5G = "16A34A";
 
 // ---------- ATTENTE DES LIBRAIRIES ----------
 function waitForLibs() {
@@ -45,10 +53,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.body.addEventListener("click", handleGlobalClick);
 
+    // Initialiser 3 points par défaut pour chaque techno
     initMeasurePoints();
 
-    const addMPBtn = document.getElementById("addMeasurePointBtn");
-    if (addMPBtn) addMPBtn.addEventListener("click", () => addMeasurePoint());
+    const addMP4 = document.getElementById("addMeasurePointBtn4G");
+    if (addMP4) addMP4.addEventListener("click", () => addMeasurePoint("4g"));
+
+    const addMP5 = document.getElementById("addMeasurePointBtn5G");
+    if (addMP5) addMP5.addEventListener("click", () => addMeasurePoint("5g"));
 
     const btnChem = document.getElementById("addCheminementBtn");
     if (btnChem) btnChem.addEventListener("click", () => addCheminementItem());
@@ -56,14 +68,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const evacInput = document.getElementById("evacFileInput");
     if (evacInput) evacInput.addEventListener("change", handleEvacUpload);
 
-    const addEvacBtn = document.getElementById("addEvacPointBtn");
-    if (addEvacBtn) addEvacBtn.addEventListener("click", addEvacPoint);
-
     // Au moins un cheminement par défaut
     if (document.getElementById("cheminementContainer") &&
         document.getElementById("cheminementContainer").children.length === 0) {
         addCheminementItem();
     }
+
+    // Première génération de la liste de picker (vide tant que le plan n'est pas chargé)
+    refreshEvacPicker();
 
     console.log("✅ Audit 4G/5G chargé avec succès");
 });
@@ -103,10 +115,18 @@ function handleGlobalClick(e) {
     if (delMP) {
         const group = delMP.closest('.measure-point-group');
         if (group && confirm("Supprimer ce point de mesure ?")) {
-            const num = group.dataset.point;
-            delete photoStore[`mesure_lieu_${num}`];
-            delete photoStore[`mesure_screen_${num}`];
+            const pid = group.dataset.pointId;
+            // Supprimer les photos associées
+            delete photoStore[`mesure_lieu_${pid}`];
+            delete photoStore[`mesure_screen_${pid}`];
+            // Supprimer aussi le point sur le plan évac s'il y est placé
+            const dot = document.querySelector(`.evac-point[data-pid="${pid}"]`);
+            if (dot) dot.remove();
+            evacPoints = evacPoints.filter(p => p.pointId !== pid);
             group.remove();
+            // Recalculer numérotation interne (header) et picker
+            renumberMeasurePoints();
+            refreshEvacPicker();
         }
         return;
     }
@@ -125,10 +145,12 @@ function handleGlobalClick(e) {
     // Suppression d'un point sur le plan d'évacuation
     const delEvac = e.target.closest("[data-del-evac]");
     if (delEvac) {
-        const pid = parseInt(delEvac.dataset.delEvac, 10);
+        const pid = delEvac.dataset.delEvac; // string id type "4g-1"
         const dot = document.querySelector(`.evac-point[data-pid="${pid}"]`);
         if (dot) dot.remove();
         evacPoints = evacPoints.filter(p => p.pointId !== pid);
+        // Le point redevient disponible dans le picker
+        refreshEvacPicker();
         return;
     }
 }
@@ -225,6 +247,10 @@ function analyzePoint(group) {
         resultSpan.style.background = "#e5e7eb";
         resultSpan.style.color = "#374151";
         group.dataset.analysisLabel = "";
+        group.dataset.analysisColor = "";
+        // Rafraîchir picker (couleur du dot peut changer)
+        if (typeof refreshEvacPicker === "function") refreshEvacPicker();
+        if (typeof refreshAllEvacPointColors === "function") refreshAllEvacPointColors();
         return;
     }
     resultSpan.textContent = q.label;
@@ -237,28 +263,51 @@ function analyzePoint(group) {
     if (typeof refreshAllEvacPointColors === "function") {
         refreshAllEvacPointColors();
     }
-}
-
-// ---------- POINTS DE MESURE DYNAMIQUES ----------
-function initMeasurePoints() {
-    const container = document.getElementById("measurePointsContainer");
-    if (container && container.children.length === 0) {
-        for (let i = 1; i <= 3; i++) addMeasurePoint(i);
+    if (typeof refreshEvacPicker === "function") {
+        refreshEvacPicker();
     }
 }
 
-function addMeasurePoint(num = null) {
-    measureCounter++;
-    const count = num || measureCounter;
-    const container = document.getElementById("measurePointsContainer");
+// ---------- POINTS DE MESURE DYNAMIQUES (par techno : 4G / 5G) ----------
+function initMeasurePoints() {
+    const c4 = document.getElementById("measurePointsContainer4G");
+    const c5 = document.getElementById("measurePointsContainer5G");
+    if (c4 && c4.children.length === 0) {
+        for (let i = 1; i <= 3; i++) addMeasurePoint("4g");
+    }
+    if (c5 && c5.children.length === 0) {
+        for (let i = 1; i <= 3; i++) addMeasurePoint("5g");
+    }
+}
+
+// tech : "4g" | "5g"
+function addMeasurePoint(tech) {
+    if (tech !== "4g" && tech !== "5g") tech = "4g";
+    const containerId = tech === "4g" ? "measurePointsContainer4G" : "measurePointsContainer5G";
+    const container = document.getElementById(containerId);
     if (!container) return;
+
+    let count;
+    if (tech === "4g") {
+        measureCounter4G++;
+        count = measureCounter4G;
+    } else {
+        measureCounter5G++;
+        count = measureCounter5G;
+    }
+
+    // pointId stable utilisé partout (DOM, photoStore, evacPoints) : "4g-1", "5g-2"
+    const pid = `${tech}-${count}`;
+    const techLabel = tech === "4g" ? "4G" : "5G";
 
     const div = document.createElement("div");
     div.className = "measure-point-group";
     div.dataset.point = count;
+    div.dataset.tech = tech;
+    div.dataset.pointId = pid;
     div.innerHTML = `
         <div class="mp-header">
-            <h4>📍 Point de mesure ${count}</h4>
+            <h4>📍 Point de mesure ${techLabel} ${count}</h4>
             <button class="btn-delete" data-del-measure title="Supprimer ce point">🗑</button>
         </div>
         <input type="text" class="point-lieu mp-field" placeholder="Lieu / Pièce (ex: Bureau Direction, Local Technique RDC...)">
@@ -266,20 +315,20 @@ function addMeasurePoint(num = null) {
         <div class="mp-photos">
             <div class="mp-photo-block">
                 <label class="mp-photo-label">📷 Photo du lieu</label>
-                <input type="file" accept="image/*" data-measure-index="${count}" data-photo-type="lieu">
-                <img id="preview_mesure_lieu_${count}" class="photo-preview">
+                <input type="file" accept="image/*" data-photo-type="lieu">
+                <img id="preview_mesure_lieu_${pid}" class="photo-preview">
                 <div class="mp-photo-actions">
-                    <button class="annotate-btn" data-annotate="mesure_lieu_${count}" disabled>✏ Annoter</button>
-                    <button class="clear-btn" data-clear="mesure_lieu_${count}">🗑 Effacer</button>
+                    <button class="annotate-btn" data-annotate="mesure_lieu_${pid}" disabled>✏ Annoter</button>
+                    <button class="clear-btn" data-clear="mesure_lieu_${pid}">🗑 Effacer</button>
                 </div>
             </div>
             <div class="mp-photo-block">
                 <label class="mp-photo-label">📱 Copie écran mesure</label>
-                <input type="file" accept="image/*" data-measure-index="${count}" data-photo-type="screen">
-                <img id="preview_mesure_screen_${count}" class="photo-preview">
+                <input type="file" accept="image/*" data-photo-type="screen">
+                <img id="preview_mesure_screen_${pid}" class="photo-preview">
                 <div class="mp-photo-actions">
-                    <button class="annotate-btn" data-annotate="mesure_screen_${count}" disabled>✏ Annoter</button>
-                    <button class="clear-btn" data-clear="mesure_screen_${count}">🗑 Effacer</button>
+                    <button class="annotate-btn" data-annotate="mesure_screen_${pid}" disabled>✏ Annoter</button>
+                    <button class="clear-btn" data-clear="mesure_screen_${pid}">🗑 Effacer</button>
                 </div>
             </div>
         </div>
@@ -307,7 +356,7 @@ function addMeasurePoint(num = null) {
             </div>
             <div class="mp-measure-cell">
                 <label>Bande / Techno</label>
-                <input type="text" class="measure-band" placeholder="ex: B7 4G+ / n78 5G">
+                <input type="text" class="measure-band" placeholder="${tech === '4g' ? 'ex: B7 4G+' : 'ex: n78 5G'}">
             </div>
         </div>
 
@@ -320,9 +369,8 @@ function addMeasurePoint(num = null) {
 
     div.querySelectorAll('input[type="file"]').forEach(inp => {
         inp.addEventListener("change", async (e) => {
-            const index = e.target.dataset.measureIndex;
             const type = e.target.dataset.photoType;
-            const key = `mesure_${type}_${index}`;
+            const key = `mesure_${type}_${pid}`;
             await processPhoto(e.target.files[0], key);
             const annBtn = div.querySelector(`[data-annotate="${key}"]`);
             if (annBtn) annBtn.disabled = false;
@@ -331,6 +379,38 @@ function addMeasurePoint(num = null) {
 
     div.querySelectorAll('input.measure-rsrp, input.measure-sinr').forEach(inp => {
         inp.addEventListener('input', () => analyzePoint(div));
+    });
+
+    // Mettre à jour le label si l'utilisateur change le nom du lieu
+    const lieuInput = div.querySelector('.point-lieu');
+    if (lieuInput) {
+        lieuInput.addEventListener('input', () => {
+            // Mettre à jour le label affiché sur le plan évac (si placé)
+            updateEvacPointLabel(pid);
+            // Rafraîchir picker (le nom affiché change)
+            refreshEvacPicker();
+        });
+    }
+
+    // Si le plan d'évacuation est visible, mettre à jour la liste
+    refreshEvacPicker();
+}
+
+// Renumérote l'affichage des en-têtes "Point de mesure 4G N" après suppression
+function renumberMeasurePoints() {
+    ["4g", "5g"].forEach(tech => {
+        const cont = document.getElementById(tech === "4g" ? "measurePointsContainer4G" : "measurePointsContainer5G");
+        if (!cont) return;
+        const techLabel = tech === "4g" ? "4G" : "5G";
+        let i = 0;
+        cont.querySelectorAll('.measure-point-group').forEach(g => {
+            i++;
+            const h4 = g.querySelector('.mp-header h4');
+            if (h4) h4.textContent = `📍 Point de mesure ${techLabel} ${i}`;
+            // On NE change PAS dataset.pointId pour ne pas casser les associations
+            // (photos, points évac déjà placés). On met juste à jour le label visuel.
+            g.dataset.point = i;
+        });
     });
 }
 
@@ -353,20 +433,120 @@ function handleEvacUpload(e) {
         if (stage) stage.style.display = 'block';
         if (bgImg) bgImg.src = dataUrl;
         if (upArea) upArea.style.display = 'none';
+        // Afficher la liste des points disponibles
+        refreshEvacPicker();
     };
     reader.readAsDataURL(file);
 }
 
-function addEvacPoint() {
+// Helpers : trouver le groupe DOM correspondant à un pointId ("4g-1", "5g-2"...)
+function getMeasureGroupByPid(pid) {
+    if (!pid) return null;
+    return document.querySelector(`.measure-point-group[data-point-id="${pid}"]`);
+}
+
+// Récupérer tous les points existants dans l'ordre 4G puis 5G
+function getAllMeasurePoints() {
+    const all = [];
+    ["4g", "5g"].forEach(tech => {
+        const cont = document.getElementById(tech === "4g" ? "measurePointsContainer4G" : "measurePointsContainer5G");
+        if (!cont) return;
+        cont.querySelectorAll('.measure-point-group').forEach(g => {
+            all.push(g);
+        });
+    });
+    return all;
+}
+
+// Donne le nom à afficher pour un point (lieu ou fallback)
+function getPointDisplayName(group) {
+    if (!group) return "Point non nommé";
+    const lieu = (group.querySelector('.point-lieu')?.value || "").trim();
+    return lieu || "Point non nommé";
+}
+
+// Construit / met à jour la liste des points disponibles à placer sur le plan
+function refreshEvacPicker() {
+    const wrap = document.getElementById('evacPointsPickerWrap');
+    const picker = document.getElementById('evacPointsPicker');
+    if (!wrap || !picker) return;
+
+    // La liste n'est visible qu'une fois le plan importé
+    const planLoaded = !!photoStore['evac_plan'];
+    wrap.style.display = planLoaded ? 'block' : 'none';
+    if (!planLoaded) return;
+
+    const placedIds = new Set(evacPoints.map(p => p.pointId));
+    const groups = getAllMeasurePoints();
+
+    picker.innerHTML = "";
+    if (groups.length === 0) {
+        picker.innerHTML = `<span class="evac-pp-empty">Aucun point de mesure défini. Ajoutez-en dans la section 3.</span>`;
+        return;
+    }
+
+    groups.forEach(g => {
+        const pid = g.dataset.pointId;
+        const tech = g.dataset.tech || "4g";
+        const name = getPointDisplayName(g);
+        const placed = placedIds.has(pid);
+
+        const item = document.createElement('div');
+        item.className = `evac-pp-item${placed ? " placed" : ""}`;
+        item.dataset.pid = pid;
+        item.dataset.tech = tech;
+        item.innerHTML = `<span class="pp-tech-dot tech-${tech}"></span><span class="pp-name">${escapeHtml(name)}</span><span class="pp-tech-tag">(${tech.toUpperCase()})</span>`;
+        if (!placed) {
+            item.addEventListener('click', () => placeEvacPoint(pid));
+        } else {
+            // Item déjà placé → clic affiche la popup (impossible de re-ajouter)
+            item.addEventListener('click', () => {
+                showEvacPopup("Ce point est déjà placé sur le plan. Supprimez-le d'abord pour le replacer.");
+            });
+        }
+        picker.appendChild(item);
+    });
+
+    // Si TOUS les points existants sont placés, afficher un état "complet"
+    const allPlaced = groups.length > 0 && placedIds.size >= groups.length;
+    if (allPlaced) {
+        const info = document.createElement('div');
+        info.className = 'evac-pp-empty';
+        info.style.marginTop = '8px';
+        info.textContent = "Tous les points existants sont déjà placés sur le plan.";
+        picker.appendChild(info);
+    }
+}
+
+// Petit helper d'échappement HTML pour le nom du point
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Place un point existant (par pid) sur le plan d'évacuation
+function placeEvacPoint(pid) {
     const wrap = document.getElementById('evacStageWrap');
     const bgImg = document.getElementById('evacBgImage');
     if (!wrap || !bgImg || !bgImg.src) {
-        alert("Importez d'abord un plan d'évacuation.");
+        showEvacPopup("Importez d'abord un plan d'évacuation.");
         return;
     }
-    evacPointCounter++;
-    const pid = evacPointCounter;
-    // État initial du point (positions en %, taille en px)
+    // Déjà placé ?
+    if (evacPoints.some(p => p.pointId === pid)) return;
+
+    // Vérifier que le point existe encore
+    const group = getMeasureGroupByPid(pid);
+    if (!group) {
+        showEvacPopup("Ce point n'existe plus dans le formulaire.");
+        refreshEvacPicker();
+        return;
+    }
+
     const pointState = {
         pointId: pid,
         leftPct: 50,
@@ -376,33 +556,66 @@ function addEvacPoint() {
     evacPoints.push(pointState);
     renderEvacPoint(pointState);
     refreshAllEvacPointColors();
+    refreshEvacPicker();
+
+    // Si tous les points sont maintenant placés, popup info (sans bloquer)
+    const total = getAllMeasurePoints().length;
+    if (evacPoints.length >= total && total > 0) {
+        // pas obligatoire ici — affichage seulement si l'utilisateur tente d'en ajouter encore
+    }
 }
+
+// Popup helpers
+function showEvacPopup(msg) {
+    const txt = document.getElementById('evacPopupText');
+    const overlay = document.getElementById('evacPopup');
+    if (txt) txt.textContent = msg;
+    if (overlay) overlay.classList.add('shown');
+}
+function closeEvacPopup() {
+    const overlay = document.getElementById('evacPopup');
+    if (overlay) overlay.classList.remove('shown');
+}
+window.closeEvacPopup = closeEvacPopup;
 
 // (Re)dessiner un point sur le plan d'évacuation à partir de son état
 function renderEvacPoint(state) {
     const wrap = document.getElementById('evacStageWrap');
     if (!wrap) return;
-    // Supprimer l'ancien rendu si existe
     const old = wrap.querySelector(`.evac-point[data-pid="${state.pointId}"]`);
     if (old) old.remove();
+
+    const group = getMeasureGroupByPid(state.pointId);
+    const tech = (group && group.dataset.tech) || (String(state.pointId).startsWith("5g") ? "5g" : "4g");
+    const name = getPointDisplayName(group);
 
     const dot = document.createElement('div');
     dot.className = 'evac-point';
     dot.dataset.pid = state.pointId;
+    dot.dataset.tech = tech;
     dot.style.left = state.leftPct + '%';
     dot.style.top = state.topPct + '%';
     dot.style.width  = state.size + 'px';
     dot.style.height = state.size + 'px';
-    // contenu : pin (label P#) + halo + dot central + handle de resize + bouton supprimer
     dot.innerHTML = `
         <div class="evac-halo"></div>
         <div class="evac-core"></div>
-        <div class="evac-pin">P${state.pointId}</div>
+        <div class="evac-pin"><span class="pin-tech tech-${tech}"></span><span class="pin-name">${escapeHtml(name)}</span></div>
         <div class="evac-resize" title="Étirer pour agrandir le halo">⤢</div>
         <div class="evac-del" data-del-evac="${state.pointId}" title="Supprimer">✕</div>
     `;
     wrap.appendChild(dot);
     makeEvacInteractive(dot, state, wrap);
+}
+
+// Mettre à jour le label affiché d'un point évac (quand on change le nom du lieu)
+function updateEvacPointLabel(pid) {
+    const dot = document.querySelector(`.evac-point[data-pid="${pid}"]`);
+    if (!dot) return;
+    const group = getMeasureGroupByPid(pid);
+    const name = getPointDisplayName(group);
+    const nameSpan = dot.querySelector('.evac-pin .pin-name');
+    if (nameSpan) nameSpan.textContent = name;
 }
 
 // Drag + Resize sur un point d'évacuation (souris + tactile)
@@ -474,10 +687,8 @@ function makeEvacInteractive(el, state, container) {
 
 // Met à jour les couleurs de tous les points évac selon les points de mesure correspondants
 function refreshAllEvacPointColors() {
-    const groups = document.querySelectorAll('.measure-point-group');
     evacPoints.forEach((state) => {
-        const idx = state.pointId - 1; // P1 → mesure 0
-        const grp = groups[idx];
+        const grp = getMeasureGroupByPid(state.pointId);
         const colorHex = (grp && grp.dataset.analysisColor)
             ? grp.dataset.analysisColor
             : "#dc2626"; // rouge par défaut si pas de mesure correspondante
@@ -489,7 +700,6 @@ function applyEvacPointColor(pid, colorHex) {
     const el = document.querySelector(`.evac-point[data-pid="${pid}"]`);
     if (!el) return;
     const hex = colorHex.replace("#", "");
-    // halo : couleur translucide (rgba)
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
@@ -553,11 +763,8 @@ async function composeEvacPlanWithPoints() {
             const scaleX = img.naturalWidth  / Math.max(1, wrapRect.width);
             const scaleY = img.naturalHeight / Math.max(1, wrapRect.height);
 
-            // Récupérer les couleurs depuis les points de mesure
-            const groups = document.querySelectorAll('.measure-point-group');
-
             evacPoints.forEach((state) => {
-                const grp = groups[state.pointId - 1];
+                const grp = getMeasureGroupByPid(state.pointId);
                 const colorHex = (grp && grp.dataset.analysisColor) ? grp.dataset.analysisColor : "#dc2626";
                 const hex = colorHex.replace("#","");
                 const r = parseInt(hex.substring(0,2),16);
@@ -591,16 +798,20 @@ async function composeEvacPlanWithPoints() {
                 ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Pin (label P#)
-                const labelTxt = `P${state.pointId}`;
+                // Label = nom réel du point, à proximité du centre (pas du bord du halo)
+                const labelTxt = getPointDisplayName(grp);
                 const fontSize = Math.max(14, 14 * Math.max(scaleX, scaleY));
                 ctx.font = `bold ${fontSize}px Arial, sans-serif`;
                 const metrics = ctx.measureText(labelTxt);
                 const padX = 8, padY = 4;
                 const labelW = metrics.width + padX * 2;
                 const labelH = fontSize + padY * 2;
-                const labelX = cx - labelW / 2;
-                const labelY = cy - haloR - labelH - 6; // au-dessus du halo
+                // Positionnement légèrement au-dessus et à droite du centre du cercle
+                // Distance fixe par rapport au dot, NE dépend PAS de la taille du halo
+                const offsetX = coreR + 6;
+                const offsetY = -(coreR + labelH + 6);
+                const labelX = cx + offsetX;
+                const labelY = cy + offsetY;
                 // bg blanc avec bordure bleue
                 ctx.fillStyle = "white";
                 ctx.strokeStyle = "#1F4E79";
@@ -609,7 +820,7 @@ async function composeEvacPlanWithPoints() {
                 ctx.fillStyle = "#1F4E79";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(labelTxt, cx, labelY + labelH / 2);
+                ctx.fillText(labelTxt, labelX + labelW / 2, labelY + labelH / 2);
             });
 
             // Convertir le canvas en Uint8Array PNG
@@ -696,6 +907,8 @@ async function generateDocument() {
     // Titre de section "1. Titre" avec ligne dessous
     const sectionTitle = (num, txt) => new Paragraph({
         spacing: { before: 360, after: 120 },
+        keepNext: true,
+        keepLines: true,
         border: {
             bottom: { style: BorderStyle.SINGLE, size: 12, color: COLOR_TITLE, space: 4 }
         },
@@ -708,6 +921,8 @@ async function generateDocument() {
     // Sous-titre "2.1 - Texte"
     const subTitle = (num, txt) => new Paragraph({
         spacing: { before: 240, after: 80 },
+        keepNext: true,
+        keepLines: true,
         children: [
             new TextRun({ text: `${num} - ${txt}`, italics: true, bold: true, size: 22, color: COLOR_SUBTITLE, font: "Calibri" })
         ]
@@ -935,16 +1150,34 @@ async function generateDocument() {
     children.push(buildMatrixTable(window.docx));
     children.push(P("", { spacing: { before: 120, after: 60 } }));
 
-    const measureGroups = document.querySelectorAll('.measure-point-group');
-    measureGroups.forEach((group, idx) => {
-        const num = idx + 1;
-        const keyLieu = `mesure_lieu_${num}`;
-        const keyScreen = `mesure_screen_${num}`;
-        const lieuTxt = (group.querySelector('.point-lieu')?.value || "").trim() || `Point ${num}`;
+    // ---------- Helper bloc d'un point (section insécable) ----------
+    // Construit un bloc complet pour un point de mesure (titre + tableau + analyse + photos)
+    // et l'enveloppe dans un Table à 1 cellule avec cantSplit=true → la section ne sera
+    // jamais coupée entre 2 pages. Si elle ne tient pas, Word fera un saut avant.
+    function buildMeasureSectionBlock(group, sectionNum, subNum) {
+        const pid = group.dataset.pointId;
+        const tech = group.dataset.tech || "4g";
+        const techLabel = tech === "4g" ? "4G" : "5G";
+        const keyLieu = `mesure_lieu_${pid}`;
+        const keyScreen = `mesure_screen_${pid}`;
+        const lieuTxt = (group.querySelector('.point-lieu')?.value || "").trim() || "Point non nommé";
 
-        children.push(subTitle(`3.${num}`, `Point ${num} – ${lieuTxt}`));
+        const blockChildren = [];
 
-        // Tableau valeurs (4 colonnes : RSRP / RSRQ / SNR / Bande, puis Down / Up)
+        // Sous-titre (3.x.y)
+        blockChildren.push(new Paragraph({
+            spacing: { before: 200, after: 80 },
+            keepNext: true,
+            keepLines: true,
+            children: [
+                new TextRun({
+                    text: `${sectionNum}.${subNum} - ${techLabel} – Point ${subNum} – ${lieuTxt}`,
+                    italics: true, bold: true, size: 22, color: COLOR_SUBTITLE, font: "Calibri"
+                })
+            ]
+        }));
+
+        // Tableau de valeurs
         const rsrp = group.querySelector('.measure-rsrp')?.value || "—";
         const rsrq = group.querySelector('.measure-rsrq')?.value || "—";
         const sinr = group.querySelector('.measure-sinr')?.value || "—";
@@ -952,81 +1185,145 @@ async function generateDocument() {
         const up   = group.querySelector('.measure-up')?.value   || "—";
         const band = group.querySelector('.measure-band')?.value || "—";
 
-        children.push(new Table({
-            width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [1560, 1560, 1560, 1560, 1560, 1560],
+        blockChildren.push(new Table({
+            width: { size: 9120, type: WidthType.DXA },
+            columnWidths: [1520, 1520, 1520, 1520, 1520, 1520],
             rows: [
-                new TableRow({ children: [
-                    labelCell("RSRP (dBm)", 1560),
-                    labelCell("RSRQ (dB)", 1560),
-                    labelCell("SNR (dB)", 1560),
-                    labelCell("↓ Desc. (Mbps)", 1560),
-                    labelCell("↑ Mont. (Mbps)", 1560),
-                    labelCell("Bande / Techno", 1560)
-                ]}),
-                new TableRow({ children: [
-                    valueCell(rsrp, 1560),
-                    valueCell(rsrq, 1560),
-                    valueCell(sinr, 1560),
-                    valueCell(down, 1560),
-                    valueCell(up, 1560),
-                    valueCell(band, 1560)
-                ]})
+                new TableRow({
+                    cantSplit: true,
+                    children: [
+                        labelCell("RSRP (dBm)", 1520),
+                        labelCell("RSRQ (dB)", 1520),
+                        labelCell("SNR (dB)", 1520),
+                        labelCell("↓ Desc. (Mbps)", 1520),
+                        labelCell("↑ Mont. (Mbps)", 1520),
+                        labelCell("Bande / Techno", 1520)
+                    ]
+                }),
+                new TableRow({
+                    cantSplit: true,
+                    children: [
+                        valueCell(rsrp, 1520),
+                        valueCell(rsrq, 1520),
+                        valueCell(sinr, 1520),
+                        valueCell(down, 1520),
+                        valueCell(up, 1520),
+                        valueCell(band, 1520)
+                    ]
+                })
             ]
         }));
 
         // Analyse colorée
-        const label = group.dataset.analysisLabel || "";
+        const labelTxt = group.dataset.analysisLabel || "";
         const colorHex = (group.dataset.analysisColor || "#6b7280").replace("#","");
-        if (label) {
-            children.push(P("", { spacing: { before: 80, after: 0 } }));
-            children.push(new Table({
-                width: { size: 9360, type: WidthType.DXA },
-                columnWidths: [3120, 6240],
-                rows: [new TableRow({ children: [
-                    labelCell("🎯 Qualité globale (matrice RSRP × SNR)", 3120),
-                    new TableCell({
-                        width: { size: 6240, type: WidthType.DXA },
-                        verticalAlign: VerticalAlign.CENTER,
-                        shading: { fill: colorHex.toUpperCase(), type: ShadingType.CLEAR, color: "auto" },
-                        margins: { top: 100, bottom: 100, left: 140, right: 140 },
-                        borders: stdBorders,
-                        children: [new Paragraph({
-                            children: [new TextRun({ text: label, bold: true, size: 22, color: "FFFFFF", font: "Calibri" })]
-                        })]
-                    })
-                ]})]
-            }));
-        }
-
-        // Photos côte à côte (bandeaux séparés)
-        const hasL = !!photoStore[keyLieu];
-        const hasS = !!photoStore[keyScreen];
-        if (hasL || hasS) {
-            children.push(P("", { spacing: { before: 120, after: 60 } }));
-            children.push(new Table({
-                width: { size: 9360, type: WidthType.DXA },
-                columnWidths: [4680, 4680],
-                borders: noBorders,
+        if (labelTxt) {
+            blockChildren.push(P("", { spacing: { before: 80, after: 0 } }));
+            blockChildren.push(new Table({
+                width: { size: 9120, type: WidthType.DXA },
+                columnWidths: [3040, 6080],
                 rows: [new TableRow({
+                    cantSplit: true,
                     children: [
+                        labelCell("🎯 Qualité globale (matrice RSRP × SNR)", 3040),
                         new TableCell({
-                            width: { size: 4680, type: WidthType.DXA },
-                            margins: { top: 0, bottom: 0, left: 60, right: 60 },
-                            borders: noBorders,
-                            children: [hasL ? photoBannerInner("Photo du lieu", keyLieu, 4560) : P("(Pas de photo lieu)", { italics: true, color: "999999" })]
-                        }),
-                        new TableCell({
-                            width: { size: 4680, type: WidthType.DXA },
-                            margins: { top: 0, bottom: 0, left: 60, right: 60 },
-                            borders: noBorders,
-                            children: [hasS ? photoBannerInner("Copie écran mesure", keyScreen, 4560) : P("(Pas de copie écran)", { italics: true, color: "999999" })]
+                            width: { size: 6080, type: WidthType.DXA },
+                            verticalAlign: VerticalAlign.CENTER,
+                            shading: { fill: colorHex.toUpperCase(), type: ShadingType.CLEAR, color: "auto" },
+                            margins: { top: 100, bottom: 100, left: 140, right: 140 },
+                            borders: stdBorders,
+                            children: [new Paragraph({
+                                children: [new TextRun({ text: labelTxt, bold: true, size: 22, color: "FFFFFF", font: "Calibri" })]
+                            })]
                         })
                     ]
                 })]
             }));
         }
+
+        // Photos côte à côte
+        const hasL = !!photoStore[keyLieu];
+        const hasS = !!photoStore[keyScreen];
+        if (hasL || hasS) {
+            blockChildren.push(P("", { spacing: { before: 120, after: 60 } }));
+            blockChildren.push(new Table({
+                width: { size: 9120, type: WidthType.DXA },
+                columnWidths: [4560, 4560],
+                borders: noBorders,
+                rows: [new TableRow({
+                    cantSplit: true,
+                    children: [
+                        new TableCell({
+                            width: { size: 4560, type: WidthType.DXA },
+                            margins: { top: 0, bottom: 0, left: 60, right: 60 },
+                            borders: noBorders,
+                            children: [hasL ? photoBannerInner("Photo du lieu", keyLieu, 4440) : P("(Pas de photo lieu)", { italics: true, color: "999999" })]
+                        }),
+                        new TableCell({
+                            width: { size: 4560, type: WidthType.DXA },
+                            margins: { top: 0, bottom: 0, left: 60, right: 60 },
+                            borders: noBorders,
+                            children: [hasS ? photoBannerInner("Copie écran mesure", keyScreen, 4440) : P("(Pas de copie écran)", { italics: true, color: "999999" })]
+                        })
+                    ]
+                })]
+            }));
+        }
+
+        // Enveloppe TOUT le bloc dans un Table à 1 ligne / 1 cellule avec cantSplit
+        // → Word ne coupera JAMAIS le bloc entre 2 pages. Si pas assez de place, saut auto avant.
+        return new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [9360],
+            borders: noBorders,
+            rows: [new TableRow({
+                cantSplit: true,
+                children: [new TableCell({
+                    width: { size: 9360, type: WidthType.DXA },
+                    margins: { top: 80, bottom: 80, left: 0, right: 0 },
+                    borders: noBorders,
+                    children: blockChildren
+                })]
+            })]
+        });
+    }
+
+    // ---------- Helper : sous-titre techno (3.A 4G — 3.B 5G) ----------
+    const techSubTitle = (label, accentColor) => new Paragraph({
+        spacing: { before: 280, after: 120 },
+        keepNext: true,
+        keepLines: true,
+        border: {
+            bottom: { style: BorderStyle.SINGLE, size: 8, color: accentColor, space: 4 }
+        },
+        children: [
+            new TextRun({ text: label, bold: true, size: 24, color: accentColor, font: "Calibri" })
+        ]
     });
+
+    // ---------- 3.A — 4G ----------
+    const groups4G = Array.from(document.querySelectorAll('#measurePointsContainer4G .measure-point-group'));
+    if (groups4G.length > 0) {
+        children.push(techSubTitle("3.A — Mesures 4G", TECH_COLOR_4G));
+        groups4G.forEach((group, idx) => {
+            children.push(buildMeasureSectionBlock(group, "3.A", idx + 1));
+            children.push(P("", { spacing: { before: 60, after: 60 } }));
+        });
+    }
+
+    // ---------- 3.B — 5G ----------
+    const groups5G = Array.from(document.querySelectorAll('#measurePointsContainer5G .measure-point-group'));
+    if (groups5G.length > 0) {
+        children.push(techSubTitle("3.B — Mesures 5G", TECH_COLOR_5G));
+        groups5G.forEach((group, idx) => {
+            children.push(buildMeasureSectionBlock(group, "3.B", idx + 1));
+            children.push(P("", { spacing: { before: 60, after: 60 } }));
+        });
+    }
+
+    if (groups4G.length === 0 && groups5G.length === 0) {
+        children.push(P("(Aucun point de mesure renseigné)", { italics: true, color: "999999" }));
+    }
 
     // Helper : bandeau photo "intérieur" (utilisé pour côte à côte)
     function photoBannerInner(title, key, w) {
@@ -1081,6 +1378,8 @@ async function generateDocument() {
             children.push(new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 120, after: 120 },
+                keepLines: true,
+                keepNext: evacPoints.length > 0,
                 children: [new ImageRun({
                     data: composed.data,
                     transformation: { width: composed.dispW, height: composed.dispH },
@@ -1092,6 +1391,8 @@ async function generateDocument() {
             children.push(new Paragraph({
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 120, after: 120 },
+                keepLines: true,
+                keepNext: evacPoints.length > 0,
                 children: [new ImageRun({
                     data: photoStore['evac_plan'].data,
                     transformation: { width: 500, height: 350 },
@@ -1100,35 +1401,59 @@ async function generateDocument() {
             }));
         }
         if (evacPoints.length > 0) {
-            // Légende des points : P1 → couleur → label qualité
-            const groups = document.querySelectorAll('.measure-point-group');
+            // Légende des points : nom + techno + couleur + qualité
             const legendRows = evacPoints.map(p => {
-                const grp = groups[p.pointId - 1];
+                const grp = getMeasureGroupByPid(p.pointId);
                 const label = grp ? (grp.dataset.analysisLabel || "—") : "—";
-                const lieu  = grp ? (grp.querySelector('.point-lieu')?.value || `Point ${p.pointId}`) : `Point ${p.pointId}`;
+                const lieu  = grp ? getPointDisplayName(grp) : "Point non nommé";
+                const tech  = grp ? (grp.dataset.tech || "4g") : "4g";
                 const colorHex = grp ? (grp.dataset.analysisColor || "#6b7280") : "#6b7280";
-                return { pid: p.pointId, lieu, label, color: colorHex.replace("#","").toUpperCase() };
+                return { pid: p.pointId, lieu, label, tech, color: colorHex.replace("#","").toUpperCase() };
             });
             children.push(P("Légende des points :", { italics: true, color: "555555", spacing: { before: 80, after: 60 } }));
             children.push(new Table({
                 width: { size: 9360, type: WidthType.DXA },
-                columnWidths: [780, 4680, 3900],
-                rows: legendRows.map(r => new TableRow({
-                    children: [
-                        new TableCell({
-                            width: { size: 780, type: WidthType.DXA },
-                            shading: { fill: r.color, type: ShadingType.CLEAR, color: "auto" },
-                            margins: { top: 80, bottom: 80, left: 100, right: 100 },
-                            borders: stdBorders,
-                            children: [new Paragraph({
-                                alignment: AlignmentType.CENTER,
-                                children: [new TextRun({ text: `P${r.pid}`, bold: true, size: 20, color: "FFFFFF", font: "Calibri" })]
-                            })]
-                        }),
-                        valueCell(r.lieu, 4680),
-                        valueCell(r.label, 3900)
-                    ]
-                }))
+                columnWidths: [820, 1040, 3640, 3860],
+                rows: [
+                    // Header
+                    new TableRow({
+                        cantSplit: true,
+                        children: [
+                            labelCell("Couleur", 820),
+                            labelCell("Techno", 1040),
+                            labelCell("Lieu / Nom du point", 3640),
+                            labelCell("Qualité", 3860)
+                        ]
+                    }),
+                    ...legendRows.map(r => new TableRow({
+                        cantSplit: true,
+                        children: [
+                            new TableCell({
+                                width: { size: 820, type: WidthType.DXA },
+                                shading: { fill: r.color, type: ShadingType.CLEAR, color: "auto" },
+                                margins: { top: 80, bottom: 80, left: 100, right: 100 },
+                                borders: stdBorders,
+                                children: [new Paragraph({
+                                    alignment: AlignmentType.CENTER,
+                                    children: [new TextRun({ text: " ", size: 20, color: "FFFFFF", font: "Calibri" })]
+                                })]
+                            }),
+                            new TableCell({
+                                width: { size: 1040, type: WidthType.DXA },
+                                shading: { fill: r.tech === "4g" ? TECH_COLOR_4G : TECH_COLOR_5G, type: ShadingType.CLEAR, color: "auto" },
+                                margins: { top: 80, bottom: 80, left: 100, right: 100 },
+                                borders: stdBorders,
+                                verticalAlign: VerticalAlign.CENTER,
+                                children: [new Paragraph({
+                                    alignment: AlignmentType.CENTER,
+                                    children: [new TextRun({ text: r.tech.toUpperCase(), bold: true, size: 20, color: "FFFFFF", font: "Calibri" })]
+                                })]
+                            }),
+                            valueCell(r.lieu, 3640),
+                            valueCell(r.label, 3860)
+                        ]
+                    }))
+                ]
             }));
         }
     } else {
@@ -1171,6 +1496,7 @@ async function generateDocument() {
             columnWidths: [4680, 4680],
             borders: noBorders,
             rows: [new TableRow({
+                cantSplit: true,
                 children: [
                     new TableCell({
                         width: { size: 4680, type: WidthType.DXA },
@@ -1203,8 +1529,8 @@ async function generateDocument() {
         width: { size: 9360, type: WidthType.DXA },
         columnWidths: [9360],
         rows: [
-            new TableRow({ children: [labelCell("Observations / Réserves / Points à lever", 9360)] }),
-            new TableRow({ children: [valueCell(val("observations"), 9360)] })
+            new TableRow({ cantSplit: true, children: [labelCell("Observations / Réserves / Points à lever", 9360)] }),
+            new TableRow({ cantSplit: true, children: [valueCell(val("observations"), 9360)] })
         ]
     }));
 
@@ -1214,8 +1540,8 @@ async function generateDocument() {
         width: { size: 9360, type: WidthType.DXA },
         columnWidths: [9360],
         rows: [
-            new TableRow({ children: [labelCell("Signature technicien / auditeur", 9360)] }),
-            new TableRow({ children: [valueCell(
+            new TableRow({ cantSplit: true, children: [labelCell("Signature technicien / auditeur", 9360)] }),
+            new TableRow({ cantSplit: true, children: [valueCell(
                 `Nom : ${val("signataire_nom") || "_______________________________"}      Date : ${val("signataire_date")}`,
                 9360
             )] })
@@ -1404,9 +1730,10 @@ function collectFormData() {
 
     // Points de mesure
     document.querySelectorAll('.measure-point-group').forEach(group => {
-        const num = group.dataset.point;
         data.measurePoints.push({
-            num: num,
+            num: group.dataset.point,
+            tech: group.dataset.tech || "4g",
+            pointId: group.dataset.pointId || "",
             lieu: group.querySelector('.point-lieu')?.value || "",
             rsrp: group.querySelector('.measure-rsrp')?.value || "",
             rsrq: group.querySelector('.measure-rsrq')?.value || "",
@@ -1529,42 +1856,77 @@ function applyFormData(data) {
         });
     }
 
-    // Points de mesure : on vide d'abord, puis on recrée
-    const mpContainer = document.getElementById("measurePointsContainer");
-    if (mpContainer && data.measurePoints) {
-        mpContainer.innerHTML = "";
-        measureCounter = 0;
-        data.measurePoints.forEach((mp, i) => {
-            addMeasurePoint(i + 1);
-            // On remplit le dernier groupe créé
-            const groups = mpContainer.querySelectorAll('.measure-point-group');
-            const grp = groups[groups.length - 1];
-            if (grp) {
-                if (mp.lieu)  grp.querySelector('.point-lieu').value = mp.lieu;
-                if (mp.rsrp)  grp.querySelector('.measure-rsrp').value = mp.rsrp;
-                if (mp.rsrq)  grp.querySelector('.measure-rsrq').value = mp.rsrq;
-                if (mp.sinr)  grp.querySelector('.measure-sinr').value = mp.sinr;
-                if (mp.down)  grp.querySelector('.measure-down').value = mp.down;
-                if (mp.up)    grp.querySelector('.measure-up').value   = mp.up;
-                if (mp.band)  grp.querySelector('.measure-band').value = mp.band;
-                analyzePoint(grp);
+    // Points de mesure : on vide les 2 conteneurs (4G / 5G) puis on recrée
+    const mp4 = document.getElementById("measurePointsContainer4G");
+    const mp5 = document.getElementById("measurePointsContainer5G");
+    if ((mp4 || mp5) && data.measurePoints) {
+        if (mp4) mp4.innerHTML = "";
+        if (mp5) mp5.innerHTML = "";
+        measureCounter4G = 0;
+        measureCounter5G = 0;
 
-                // Activer les boutons annoter pour les photos restaurées
-                const num = grp.dataset.point;
-                ['lieu', 'screen'].forEach(t => {
-                    const key = `mesure_${t}_${num}`;
-                    if (photoStore[key]) {
-                        const ann = grp.querySelector(`[data-annotate="${key}"]`);
-                        if (ann) ann.disabled = false;
-                        const prev = document.getElementById(`preview_${key}`);
-                        if (prev) {
-                            prev.src = photoStore[key].dataUrl;
-                            prev.classList.add("shown");
-                        }
+        // Compatibilité ascendante : ancien export sans tech ni pointId
+        // → on suppose que tous les points étaient "4G" et numérotés 1..N
+        // (c'est le cas le plus probable de l'ancienne version)
+        const isLegacy = !data.measurePoints.some(mp => mp.tech || mp.pointId);
+
+        data.measurePoints.forEach((mp, i) => {
+            const tech = isLegacy ? "4g" : (mp.tech === "5g" ? "5g" : "4g");
+
+            // Migration des photos legacy : ancienne clé `mesure_lieu_<num>` (entier)
+            // → nouvelle clé `mesure_lieu_4g-<num>`
+            if (isLegacy) {
+                const oldNum = mp.num != null ? String(mp.num) : String(i + 1);
+                ["lieu", "screen"].forEach(t => {
+                    const oldKey = `mesure_${t}_${oldNum}`;
+                    const newKey = `mesure_${t}_${tech}-${i + 1}`; // pid sera 4g-(i+1)
+                    if (photoStore[oldKey] && !photoStore[newKey]) {
+                        photoStore[newKey] = photoStore[oldKey];
+                        delete photoStore[oldKey];
                     }
                 });
             }
+
+            // Crée le point dans le bon conteneur (incrémente measureCounter4G/5G)
+            addMeasurePoint(tech);
+
+            // Récupère le dernier groupe créé pour CE techno
+            const cont = tech === "4g" ? mp4 : mp5;
+            const groups = cont ? cont.querySelectorAll('.measure-point-group') : [];
+            const grp = groups[groups.length - 1];
+            if (!grp) return;
+
+            const pid = grp.dataset.pointId;
+
+            // Remplir les champs
+            if (mp.lieu)  grp.querySelector('.point-lieu').value = mp.lieu;
+            if (mp.rsrp)  grp.querySelector('.measure-rsrp').value = mp.rsrp;
+            if (mp.rsrq)  grp.querySelector('.measure-rsrq').value = mp.rsrq;
+            if (mp.sinr)  grp.querySelector('.measure-sinr').value = mp.sinr;
+            if (mp.down)  grp.querySelector('.measure-down').value = mp.down;
+            if (mp.up)    grp.querySelector('.measure-up').value   = mp.up;
+            if (mp.band)  grp.querySelector('.measure-band').value = mp.band;
+            analyzePoint(grp);
+
+            // Activer les boutons annoter pour les photos restaurées
+            ['lieu', 'screen'].forEach(t => {
+                const key = `mesure_${t}_${pid}`;
+                if (photoStore[key]) {
+                    const ann = grp.querySelector(`[data-annotate="${key}"]`);
+                    if (ann) ann.disabled = false;
+                    const prev = document.getElementById(`preview_${key}`);
+                    if (prev) {
+                        prev.src = photoStore[key].dataUrl;
+                        prev.classList.add("shown");
+                    }
+                }
+            });
         });
+
+        // Si l'export ne contenait aucun point, on remet les 3+3 par défaut
+        if (data.measurePoints.length === 0) {
+            initMeasurePoints();
+        }
     }
 
     // Cheminements
@@ -1611,29 +1973,41 @@ function applyFormData(data) {
             wrap.querySelectorAll('.evac-point').forEach(el => el.remove());
         }
         evacPoints = [];
-        evacPointCounter = 0;
 
         // Attendre que l'image soit chargée pour avoir les bonnes dimensions
         const bgImg = document.getElementById('evacBgImage');
         const onReady = () => {
             data.evacPoints.forEach(p => {
+                // Compatibilité ascendante : ancien format avec pointId numérique
+                // → on suppose qu'il faisait référence au Nème point 4G
+                let pid = p.pointId;
+                if (typeof pid === 'number') {
+                    pid = `4g-${pid}`;
+                }
+                // On ne place que si le point existe encore dans le formulaire
+                if (!getMeasureGroupByPid(pid)) {
+                    return;
+                }
                 const state = {
-                    pointId: p.pointId,
+                    pointId: pid,
                     leftPct: typeof p.leftPct === 'number' ? p.leftPct : 50,
                     topPct:  typeof p.topPct  === 'number' ? p.topPct  : 50,
                     size:    typeof p.size    === 'number' ? p.size    : 60
                 };
                 evacPoints.push(state);
-                evacPointCounter = Math.max(evacPointCounter, state.pointId);
                 renderEvacPoint(state);
             });
             refreshAllEvacPointColors();
+            refreshEvacPicker();
         };
         if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
             onReady();
         } else if (bgImg) {
             bgImg.addEventListener('load', onReady, { once: true });
         }
+    } else {
+        // Pas de points évac dans l'export → s'assurer que le picker est à jour
+        refreshEvacPicker();
     }
 }
 
