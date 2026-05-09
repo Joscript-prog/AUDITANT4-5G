@@ -1405,16 +1405,15 @@ if (groups4G.length === 0 && groups5G.length === 0) {
     });
 }
 
-      // === SECTION 4 : PLAN D'ÉVACUATION (optimisé pour tenir sur une page) ===
+     // === SECTION 4 : PLAN D'ÉVACUATION (version optimisée pour une seule page) ===
     children.push(sectionTitle(4, "Plan d'évacuation – Localisation des points de mesure"));
 
     if (photoStore['evac_plan']) {
-        // Composer le plan avec les points dessinés
         const composed = await composeEvacPlanWithPoints();
         const planData = composed ? composed.data : photoStore['evac_plan'].data;
 
-        // === TAILLE OPTIMISÉE POUR TENIR AVEC LA LÉGENDE ===
-        const MAX_WIDTH_PX = 460;   // ← Tu peux modifier cette valeur (420 à 500)
+        // Taille encore plus contrôlée pour tenir sur une page avec légende
+        const MAX_WIDTH_PX = 420;   // Réduit pour laisser de la place
 
         let displayWidth = MAX_WIDTH_PX;
         let displayHeight = 0;
@@ -1423,15 +1422,15 @@ if (groups4G.length === 0 && groups5G.length === 0) {
             const ratio = composed.dispH / composed.dispW;
             displayHeight = Math.round(MAX_WIDTH_PX * ratio);
         } else {
-            // Fallback si pas de composed
             const ratio = (photoStore['evac_plan'].naturalHeight || 700) / 
                          (photoStore['evac_plan'].naturalWidth || 1000);
             displayHeight = Math.round(MAX_WIDTH_PX * ratio);
         }
 
-        children.push(new Paragraph({
+        // Paragraphe avec forte contrainte pour rester groupé
+        const planParagraph = new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 120, after: 140 },
+            spacing: { before: 100, after: 120 },
             keepNext: true,
             keepLines: true,
             children: [new ImageRun({
@@ -1442,9 +1441,11 @@ if (groups4G.length === 0 && groups5G.length === 0) {
                 },
                 type: "png"
             })]
-        }));
+        });
 
-        // Légende des points
+        children.push(planParagraph);
+
+        // Légende juste après
         if (evacPoints.length > 0) {
             const legendRows = evacPoints.map(p => {
                 const grp = getMeasureGroupByPid(p.pointId);
@@ -1452,56 +1453,33 @@ if (groups4G.length === 0 && groups5G.length === 0) {
                 const lieu  = grp ? getPointDisplayName(grp) : "Point non nommé";
                 const tech  = grp ? (grp.dataset.tech || "4g") : "4g";
                 const colorHex = grp ? (grp.dataset.analysisColor || "#6b7280") : "#6b7280";
-                return { 
-                    lieu, 
-                    label, 
-                    tech, 
-                    color: colorHex.replace("#","").toUpperCase() 
-                };
+                return { lieu, label, tech, color: colorHex.replace("#","").toUpperCase() };
             });
 
             children.push(P("Légende des points :", { 
                 italics: true, 
                 color: "555555", 
-                spacing: { before: 80, after: 60 } 
+                spacing: { before: 60, after: 40 } 
             }));
 
             children.push(new Table({
                 width: { size: 9360, type: WidthType.DXA },
                 columnWidths: [820, 1040, 3640, 3860],
                 rows: [
-                    new TableRow({
-                        cantSplit: true,
-                        children: [
-                            labelCell("Couleur", 820),
-                            labelCell("Techno", 1040),
-                            labelCell("Lieu / Nom du point", 3640),
-                            labelCell("Qualité", 3860)
-                        ]
-                    }),
+                    new TableRow({ cantSplit: true, children: [
+                        labelCell("Couleur", 820),
+                        labelCell("Techno", 1040),
+                        labelCell("Lieu / Nom du point", 3640),
+                        labelCell("Qualité", 3860)
+                    ]}),
                     ...legendRows.map(r => new TableRow({
                         cantSplit: true,
                         children: [
-                            new TableCell({
-                                width: { size: 820, type: WidthType.DXA },
-                                shading: { fill: r.color },
-                                children: [new Paragraph({
-                                    alignment: AlignmentType.CENTER,
-                                    children: [new TextRun({ text: " ", size: 20, color: "FFFFFF" })]
-                                })]
-                            }),
-                            new TableCell({
-                                width: { size: 1040, type: WidthType.DXA },
+                            new TableCell({ width: { size: 820, type: WidthType.DXA }, shading: { fill: r.color }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: " ", size: 20, color: "FFFFFF" })] })] }),
+                            new TableCell({ 
+                                width: { size: 1040, type: WidthType.DXA }, 
                                 shading: { fill: r.tech === "4g" ? TECH_COLOR_4G : TECH_COLOR_5G },
-                                children: [new Paragraph({
-                                    alignment: AlignmentType.CENTER,
-                                    children: [new TextRun({ 
-                                        text: r.tech.toUpperCase(), 
-                                        bold: true, 
-                                        size: 20, 
-                                        color: "FFFFFF" 
-                                    })]
-                                })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.tech.toUpperCase(), bold: true, size: 20, color: "FFFFFF" })] })] 
                             }),
                             valueCell(r.lieu, 3640),
                             valueCell(r.label, 3860)
@@ -1513,7 +1491,6 @@ if (groups4G.length === 0 && groups5G.length === 0) {
     } else {
         children.push(P("(Aucun plan d'évacuation fourni)", { italics: true, color: "999999" }));
     }
-
     // === SECTION 5 : CHEMINEMENT (2 par ligne) ===
     children.push(sectionTitle(5, "Cheminement câble & installation"));
     const chemItems = Array.from(document.querySelectorAll('.cheminement-item'));
