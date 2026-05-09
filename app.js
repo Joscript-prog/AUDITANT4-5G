@@ -1405,53 +1405,71 @@ if (groups4G.length === 0 && groups5G.length === 0) {
     });
 }
 
-    // === SECTION 4 : PLAN D'ÉVACUATION (avec points superposés) ===
+      // === SECTION 4 : PLAN D'ÉVACUATION (optimisé pour tenir sur une page) ===
     children.push(sectionTitle(4, "Plan d'évacuation – Localisation des points de mesure"));
+
     if (photoStore['evac_plan']) {
-        // Composer le plan + les points dans un canvas
+        // Composer le plan avec les points dessinés
         const composed = await composeEvacPlanWithPoints();
-        if (composed) {
-            children.push(new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { before: 120, after: 120 },
-                keepLines: true,
-                keepNext: evacPoints.length > 0,
-                children: [new ImageRun({
-                    data: composed.data,
-                    transformation: { width: composed.dispW, height: composed.dispH },
-                    type: "png"
-                })]
-            }));
+        const planData = composed ? composed.data : photoStore['evac_plan'].data;
+
+        // === TAILLE OPTIMISÉE POUR TENIR AVEC LA LÉGENDE ===
+        const MAX_WIDTH_PX = 460;   // ← Tu peux modifier cette valeur (420 à 500)
+
+        let displayWidth = MAX_WIDTH_PX;
+        let displayHeight = 0;
+
+        if (composed && composed.dispW > 0) {
+            const ratio = composed.dispH / composed.dispW;
+            displayHeight = Math.round(MAX_WIDTH_PX * ratio);
         } else {
-            // Fallback : juste le plan brut
-            children.push(new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { before: 120, after: 120 },
-                keepLines: true,
-                keepNext: evacPoints.length > 0,
-                children: [new ImageRun({
-                    data: photoStore['evac_plan'].data,
-                    transformation: { width: 500, height: 350 },
-                    type: photoStore['evac_plan'].type
-                })]
-            }));
+            // Fallback si pas de composed
+            const ratio = (photoStore['evac_plan'].naturalHeight || 700) / 
+                         (photoStore['evac_plan'].naturalWidth || 1000);
+            displayHeight = Math.round(MAX_WIDTH_PX * ratio);
         }
+
+        children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 140 },
+            keepNext: true,
+            keepLines: true,
+            children: [new ImageRun({
+                data: planData,
+                transformation: { 
+                    width: displayWidth, 
+                    height: displayHeight 
+                },
+                type: "png"
+            })]
+        }));
+
+        // Légende des points
         if (evacPoints.length > 0) {
-            // Légende des points : nom + techno + couleur + qualité
             const legendRows = evacPoints.map(p => {
                 const grp = getMeasureGroupByPid(p.pointId);
                 const label = grp ? (grp.dataset.analysisLabel || "—") : "—";
                 const lieu  = grp ? getPointDisplayName(grp) : "Point non nommé";
                 const tech  = grp ? (grp.dataset.tech || "4g") : "4g";
                 const colorHex = grp ? (grp.dataset.analysisColor || "#6b7280") : "#6b7280";
-                return { pid: p.pointId, lieu, label, tech, color: colorHex.replace("#","").toUpperCase() };
+                return { 
+                    lieu, 
+                    label, 
+                    tech, 
+                    color: colorHex.replace("#","").toUpperCase() 
+                };
             });
-            children.push(P("Légende des points :", { italics: true, color: "555555", spacing: { before: 80, after: 60 } }));
+
+            children.push(P("Légende des points :", { 
+                italics: true, 
+                color: "555555", 
+                spacing: { before: 80, after: 60 } 
+            }));
+
             children.push(new Table({
                 width: { size: 9360, type: WidthType.DXA },
                 columnWidths: [820, 1040, 3640, 3860],
                 rows: [
-                    // Header
                     new TableRow({
                         cantSplit: true,
                         children: [
@@ -1466,23 +1484,23 @@ if (groups4G.length === 0 && groups5G.length === 0) {
                         children: [
                             new TableCell({
                                 width: { size: 820, type: WidthType.DXA },
-                                shading: { fill: r.color, type: ShadingType.CLEAR, color: "auto" },
-                                margins: { top: 80, bottom: 80, left: 100, right: 100 },
-                                borders: stdBorders,
+                                shading: { fill: r.color },
                                 children: [new Paragraph({
                                     alignment: AlignmentType.CENTER,
-                                    children: [new TextRun({ text: " ", size: 20, color: "FFFFFF", font: "Calibri" })]
+                                    children: [new TextRun({ text: " ", size: 20, color: "FFFFFF" })]
                                 })]
                             }),
                             new TableCell({
                                 width: { size: 1040, type: WidthType.DXA },
-                                shading: { fill: r.tech === "4g" ? TECH_COLOR_4G : TECH_COLOR_5G, type: ShadingType.CLEAR, color: "auto" },
-                                margins: { top: 80, bottom: 80, left: 100, right: 100 },
-                                borders: stdBorders,
-                                verticalAlign: VerticalAlign.CENTER,
+                                shading: { fill: r.tech === "4g" ? TECH_COLOR_4G : TECH_COLOR_5G },
                                 children: [new Paragraph({
                                     alignment: AlignmentType.CENTER,
-                                    children: [new TextRun({ text: r.tech.toUpperCase(), bold: true, size: 20, color: "FFFFFF", font: "Calibri" })]
+                                    children: [new TextRun({ 
+                                        text: r.tech.toUpperCase(), 
+                                        bold: true, 
+                                        size: 20, 
+                                        color: "FFFFFF" 
+                                    })]
                                 })]
                             }),
                             valueCell(r.lieu, 3640),
