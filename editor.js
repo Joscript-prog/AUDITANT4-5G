@@ -496,8 +496,12 @@ const Editor = (function () {
     hit.setAttribute("x2", d.x2);
     hit.setAttribute("y2", d.y2);
     hit.setAttribute("stroke", "transparent");
-    // /// AMÉLIORATION TACTILE : zone de capture plus large
-    hit.setAttribute("stroke-width", Math.max(30, d.thickness * 4));
+    // /// AMÉLIORATION TACTILE : zone de capture beaucoup plus large
+    // Détecte si on est sur un appareil tactile pour augmenter encore la zone
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const touchMultiplier = isTouchDevice ? 6 : 4;
+    const touchMin = isTouchDevice ? 44 : 30;
+    hit.setAttribute("stroke-width", Math.max(touchMin, d.thickness * touchMultiplier));
     hit.setAttribute("stroke-linecap", "round");
     hit.style.pointerEvents = "stroke";
     hit.style.cursor = "grab";
