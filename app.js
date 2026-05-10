@@ -1075,7 +1075,9 @@ async function generateDocument() {
                     new Paragraph({
                         alignment: AlignmentType.CENTER,
                         children: [new TextRun({
-                            text: "RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G",
+                            text: ((document.getElementById("modeIntervention")?.value) === "travaux"
+                                ? "RAPPORT DE TRAVAUX - INSTALLATION ANTENNE 4G/5G"
+                                : "RAPPORT D'AUDIT - INSTALLATION ANTENNE 4G/5G"),
                             bold: true, size: 32, color: COLOR_WHITE, font: "Calibri"
                         })]
                     }),
@@ -1556,12 +1558,112 @@ if (groups4G.length === 0 && groups5G.length === 0) {
     ]));
 
     children.push(P("", { spacing: { before: 200, after: 80 } }));
+
+    // === COMPTE RENDU PRINCIPAL (structuré) ===
+    const mode = (document.getElementById("modeIntervention")?.value) || "audit";
+    const titreCR = (mode === "audit")
+        ? "Compte rendu — Préconisations / Points à prévoir"
+        : "Compte rendu — Travaux réalisés / Mise en œuvre";
+
+    const crText = (document.getElementById("compteRenduPreview")?.value || "").trim();
+    const blocks = (window.CompteRendu && crText) ? window.CompteRendu.parseText(crText) : [];
+
+    // Bandeau d'en-tête
+    children.push(new Table({
+        width: { size: 9360, type: WidthType.DXA },
+        columnWidths: [9360],
+        rows: [new TableRow({ cantSplit: true, children: [labelCell(titreCR, 9360)] })]
+    }));
+
+    // Contenu rendu sous forme de paragraphes hiérarchisés (sans cases à cocher !)
+    if (blocks.length === 0) {
+        children.push(P("(Aucun élément renseigné dans le compte rendu principal.)",
+            { italics: true, color: "888888", spacing: { before: 120, after: 80 } }));
+    } else {
+        const crChildren = [];
+        blocks.forEach(b => {
+            switch (b.type) {
+                case 'spacer':
+                    crChildren.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        children: [new TextRun({ text: "" })]
+                    }));
+                    break;
+                case 'h1':
+                    // déjà dans le titre du tableau, on saute pour ne pas dupliquer
+                    break;
+                case 'h2':
+                    crChildren.push(new Paragraph({
+                        spacing: { before: 200, after: 80 },
+                        children: [new TextRun({
+                            text: b.text,
+                            bold: true,
+                            size: 22,
+                            color: COLOR_TITLE,
+                            font: "Calibri"
+                        })]
+                    }));
+                    break;
+                case 'h3':
+                    crChildren.push(new Paragraph({
+                        spacing: { before: 140, after: 60 },
+                        indent: { left: 200 },
+                        children: [new TextRun({
+                            text: b.text,
+                            bold: true,
+                            italics: true,
+                            size: 20,
+                            color: COLOR_SUBTITLE,
+                            font: "Calibri"
+                        })]
+                    }));
+                    break;
+                case 'bullet':
+                    crChildren.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        indent: { left: 600, hanging: 200 },
+                        children: [
+                            new TextRun({ text: "• ", bold: true, size: 20, color: COLOR_TITLE, font: "Calibri" }),
+                            new TextRun({ text: b.text, size: 20, font: "Calibri" })
+                        ]
+                    }));
+                    break;
+                case 'p':
+                default:
+                    crChildren.push(new Paragraph({
+                        spacing: { before: 60, after: 60 },
+                        children: [new TextRun({ text: b.text, size: 20, font: "Calibri" })]
+                    }));
+                    break;
+            }
+        });
+
+        // Cellule unique contenant tout le compte rendu rendu joliment
+        children.push(new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [9360],
+            rows: [
+                new TableRow({
+                    cantSplit: false,
+                    children: [new TableCell({
+                        width: { size: 9360, type: WidthType.DXA },
+                        margins: { top: 160, bottom: 160, left: 200, right: 200 },
+                        borders: stdBorders,
+                        children: crChildren
+                    })]
+                })
+            ]
+        }));
+    }
+
+    // Zone "Observations complémentaires" (champ libre)
+    children.push(P("", { spacing: { before: 160, after: 60 } }));
     children.push(new Table({
         width: { size: 9360, type: WidthType.DXA },
         columnWidths: [9360],
         rows: [
-            new TableRow({ cantSplit: true, children: [labelCell("Observations / Réserves / Points à lever", 9360)] }),
-            new TableRow({ cantSplit: true, children: [valueCell(val("observations"), 9360)] })
+            new TableRow({ cantSplit: true, children: [labelCell("Observations / Commentaires complémentaires", 9360)] }),
+            new TableRow({ cantSplit: true, children: [valueCell(val("observations") || "—", 9360)] })
         ]
     }));
 
@@ -1653,7 +1755,8 @@ if (groups4G.length === 0 && groups5G.length === 0) {
 
     Packer.toBlob(doc).then(blob => {
         const safeName = (val("raison_sociale") || "Site").replace(/[^a-zA-Z0-9_-]/g, "_");
-        saveAs(blob, `Audit_4G5G_${safeName}_${val("date_audit")}.docx`);
+        const prefix = ((document.getElementById("modeIntervention")?.value) === "travaux") ? "Travaux" : "Audit";
+        saveAs(blob, `${prefix}_4G5G_${safeName}_${val("date_audit")}.docx`);
     });
 }
 
@@ -1796,6 +1899,11 @@ function collectFormData() {
             annotated: !!p.annotated
         };
     });
+
+    // État du compte rendu principal (cases cochées, quantités, état, localisation)
+    if (window.CompteRendu && typeof window.CompteRendu.getState === "function") {
+        data.compteRendu = window.CompteRendu.getState();
+    }
 
     return data;
 }
@@ -2039,6 +2147,12 @@ function applyFormData(data) {
     } else {
         // Pas de points évac dans l'export → s'assurer que le picker est à jour
         refreshEvacPicker();
+    }
+
+    // Restaurer l'état du compte rendu principal (cases, quantités, etc.)
+    if (data.compteRendu && window.CompteRendu && typeof window.CompteRendu.setState === "function") {
+        // setTimeout pour laisser le DOM se reconstruire si besoin
+        setTimeout(() => window.CompteRendu.setState(data.compteRendu), 0);
     }
 }
 
