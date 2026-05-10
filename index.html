@@ -33,11 +33,16 @@
         * {
             box-sizing: border-box;
         }
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;
             margin: 0;
             background: #f0f4f8;
             color: #222;
+            -webkit-tap-highlight-color: rgba(46, 117, 182, 0.2);
         }
         header {
             background: linear-gradient(135deg, #1f4e79 0%, #2e75b6 100%);
@@ -102,11 +107,21 @@
         textarea,
         select {
             width: 100%;
-            padding: 8px 10px;
+            padding: 10px 12px;
             border: 1px solid #ccc;
             border-radius: 4px;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 16px; /* >=16px évite le zoom auto sur iOS */
+            min-height: 44px; /* WCAG 2.5.5 cible tactile */
+            -webkit-appearance: none;
+            appearance: none;
+            background: #fff;
+        }
+        select {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3e%3cpath fill='%231f4e79' d='M6 8L0 0h12z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
         }
         input:focus,
         textarea:focus,
@@ -127,22 +142,31 @@
         .checkbox-group label {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             font-weight: normal;
             cursor: pointer;
-            padding: 6px 10px;
+            padding: 10px 14px;
             background: #f8fafc;
             border: 1px solid #e0e6ed;
             border-radius: 4px;
-            font-size: 0.88rem;
+            font-size: 0.95rem;
+            min-height: 44px;
+            transition: background 0.15s, border-color 0.15s;
+            touch-action: manipulation;
         }
         .checkbox-group label:hover {
             background: #eef4fa;
+        }
+        .checkbox-group label:active {
+            background: #dbe7f2;
         }
         .checkbox-group input[type="checkbox"],
         .checkbox-group input[type="radio"] {
             margin: 0;
             cursor: pointer;
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
         }
         .photo-upload {
             border: 2px dashed #c0d0e0;
@@ -189,11 +213,13 @@
             bottom: 0;
             background: white;
             padding: 15px 20px;
+            padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
             border-top: 2px solid #2e75b6;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            flex-wrap: wrap;
             z-index: 10;
         }
         button {
@@ -205,6 +231,10 @@
             cursor: pointer;
             transition: all 0.15s;
             touch-action: manipulation;
+            min-height: 44px;
+        }
+        button:active {
+            transform: scale(0.97);
         }
         .btn-primary {
             background: #2e75b6;
@@ -232,34 +262,46 @@
             background: #d9534f;
             color: white;
             border: none;
-            padding: 4px 10px;
-            border-radius: 3px;
-            font-size: 0.8rem;
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 0.85rem;
             cursor: pointer;
             margin-left: 4px;
+            min-height: 36px;
+            font-weight: 600;
             touch-action: manipulation;
+            transition: background 0.15s;
         }
         .clear-photo:hover {
             background: #c9302c;
+        }
+        .clear-photo:active {
+            transform: scale(0.97);
         }
         .annotate-btn {
             background: #5cb85c;
             color: white;
             border: none;
-            padding: 4px 10px;
-            border-radius: 3px;
-            font-size: 0.8rem;
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 0.85rem;
             cursor: pointer;
             margin-left: 4px;
             font-weight: 600;
+            min-height: 36px;
             touch-action: manipulation;
+            transition: background 0.15s;
         }
         .annotate-btn:hover {
             background: #4cae4c;
         }
+        .annotate-btn:active {
+            transform: scale(0.97);
+        }
         .annotate-btn:disabled {
             background: #aaa;
             cursor: not-allowed;
+            transform: none;
         }
         .photo-item {
             display: flex;
@@ -325,14 +367,19 @@
             background: transparent;
             border: 1px solid white;
             color: white;
-            padding: 4px 12px;
+            padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.9rem;
+            min-height: 36px;
             touch-action: manipulation;
+            transition: background 0.15s;
         }
         .editor-close:hover {
             background: rgba(255, 255, 255, 0.15);
+        }
+        .editor-close:active {
+            transform: scale(0.97);
         }
         .editor-body {
             flex: 1;
@@ -346,6 +393,7 @@
             border-right: 1px solid #ddd;
             padding: 12px;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             flex-shrink: 0;
         }
         .editor-toolbar h3 {
@@ -391,10 +439,12 @@
             position: relative;
             background: #cfd8e3;
             overflow: auto;
+            -webkit-overflow-scrolling: touch;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            touch-action: pan-x pan-y;
         }
         .editor-stage {
             position: relative;
@@ -460,7 +510,17 @@
             border: 2px solid #2e75b6;
             border-radius: 50%;
             z-index: 10;
-            touch-action: manipulation;
+            touch-action: none; /* Empêche le pan/zoom natif lors du drag */
+        }
+        /* Zone de capture invisible plus large autour de chaque poignée pour le tactile */
+        .handle::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 50%;
         }
         .handle.resize {
             bottom: -7px;
@@ -490,11 +550,18 @@
         .editor-footer {
             background: #fff;
             padding: 12px 20px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
             border-top: 1px solid #ddd;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
+        }
+        .editor-footer > div {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .editor-footer .hint {
             color: #777;
@@ -683,47 +750,192 @@
                 min-height: 300px;
             }
             .tool-btn {
-                padding: 10px 8px;
+                padding: 12px 8px;
                 font-size: 0.9rem;
+                min-height: 44px;
             }
             .tool-btn img {
                 width: 32px;
                 height: 32px;
             }
+            /* Poignées d'éditeur agrandies pour le tactile */
             .handle {
-                width: 22px;
-                height: 22px;
+                width: 28px;
+                height: 28px;
                 border-width: 3px;
             }
             .handle.resize {
-                bottom: -11px;
-                right: -11px;
+                bottom: -14px;
+                right: -14px;
             }
             .handle.rotate {
-                top: -28px;
-                width: 20px;
-                height: 20px;
+                top: -36px;
+                width: 28px;
+                height: 28px;
             }
             .handle.delete {
-                top: -11px;
-                right: -11px;
-                width: 22px;
-                height: 22px;
-                font-size: 14px;
-                line-height: 16px;
+                top: -14px;
+                right: -14px;
+                width: 28px;
+                height: 28px;
+                font-size: 18px;
+                line-height: 22px;
             }
             .handle.arrow-end {
-                width: 22px;
-                height: 22px;
+                width: 28px;
+                height: 28px;
             }
             .selection-panel .flip-btn {
-                padding: 10px 6px;
+                padding: 12px 6px;
                 font-size: 0.9rem;
+                min-height: 44px;
             }
             .editor-element.text-element {
                 white-space: normal;
                 word-break: break-word;
                 max-width: 90%;
+            }
+            /* Plan d'évacuation : points plus gros pour le tactile */
+            .evac-point {
+                min-width: 40px;
+                min-height: 40px;
+            }
+            .evac-core {
+                width: 20px;
+                height: 20px;
+            }
+            .evac-resize, .evac-del {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+            }
+            .evac-pin {
+                font-size: 0.78rem;
+                white-space: normal;
+                max-width: 130px;
+                transform: translate(8%, -130%);
+            }
+            /* Compte rendu : layout en colonne sur mobile */
+            .cr-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .cr-item-main {
+                width: 100%;
+            }
+            .cr-item-extras {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .cr-status-radios, .cr-loc-radios {
+                justify-content: flex-start;
+                flex-wrap: wrap;
+                width: 100%;
+            }
+            .cr-status-radios label, .cr-loc-radios label {
+                padding: 10px 14px;
+                font-size: 0.9rem;
+                min-height: 40px;
+                display: flex;
+                align-items: center;
+            }
+            .cr-item-main label {
+                font-size: 1rem;
+                padding: 6px 0;
+            }
+            .cr-item-main input[type="checkbox"] {
+                width: 24px;
+                height: 24px;
+            }
+            /* Dual métrage : input plus accessibles */
+            .cr-dual-metrage input {
+                width: 70px;
+                min-height: 36px;
+                font-size: 0.9rem;
+            }
+            .cr-qty-input {
+                width: 90px;
+                min-height: 36px;
+                font-size: 0.95rem;
+            }
+            /* Boutons de suppression plus tactiles */
+            .btn-delete {
+                padding: 8px 14px;
+                min-height: 40px;
+                font-size: 0.9rem;
+            }
+            /* Section padding réduit */
+            .section {
+                padding: 18px 16px;
+            }
+            .container {
+                padding: 0 12px 60px 12px;
+            }
+            /* Header plus compact */
+            header {
+                padding: 16px 18px;
+            }
+            header h1 {
+                font-size: 1.15rem;
+            }
+            /* Mode selector adaptatif */
+            .mode-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .mode-btn {
+                width: 100%;
+                padding: 14px 20px;
+                min-width: 0;
+            }
+        }
+        /* Très petits écrans (smartphones) */
+        @media (max-width: 480px) {
+            header h1 {
+                font-size: 1rem;
+            }
+            header p {
+                font-size: 0.8rem;
+            }
+            .section {
+                padding: 14px 12px;
+            }
+            .section h2 {
+                font-size: 1.05rem;
+            }
+            .field-row {
+                gap: 6px;
+            }
+            .field-row label {
+                margin-bottom: 2px;
+                font-size: 0.92rem;
+            }
+            .mp-analysis {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            /* Empile la barre d'action : boutons pleine largeur */
+            .actions {
+                flex-direction: column-reverse;
+                padding: 12px;
+            }
+            .actions button {
+                width: 100%;
+            }
+            /* Editor footer : boutons pleine largeur */
+            .editor-footer {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .editor-footer .hint {
+                text-align: center;
+                margin-bottom: 4px;
+            }
+            .editor-footer > div {
+                width: 100%;
+            }
+            .editor-footer > div button {
+                flex: 1;
             }
         }
         .evacuation-upload-area {
@@ -811,11 +1023,17 @@
         /* ============ NOUVEAUX COMPOSANTS (Style Starlink) ============ */
 
         /* --- Matrice d'interprétation RSRP × SNR --- */
+        .quality-matrix-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 14px 0 18px;
+            border-radius: 6px;
+        }
         .quality-matrix {
             width: 100%;
+            min-width: 520px; /* Force le scroll horizontal sur mobile au lieu d'écraser */
             border-collapse: separate;
             border-spacing: 0;
-            margin: 14px 0 18px;
             font-size: 0.85rem;
             background: white;
             border-radius: 6px;
@@ -908,22 +1126,29 @@
             background: transparent;
             border: 1px solid #f5b1b1;
             color: #c53030;
-            padding: 4px 10px;
+            padding: 8px 14px;
             border-radius: 4px;
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             cursor: pointer;
             font-weight: 600;
+            min-height: 36px;
+            touch-action: manipulation;
+            transition: background 0.15s;
         }
         .btn-delete:hover {
             background: #ffe5e5;
         }
+        .btn-delete:active {
+            transform: scale(0.97);
+        }
         .mp-field {
             width: 100%;
             margin-bottom: 12px;
-            padding: 8px 10px;
+            padding: 10px 12px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 0.92rem;
+            font-size: 16px; /* Anti-zoom iOS */
+            min-height: 44px;
         }
         .mp-photos {
             display: grid;
@@ -961,13 +1186,17 @@
             background: #dc3545;
             color: white;
             border: none;
-            padding: 4px 10px;
-            border-radius: 3px;
-            font-size: 0.78rem;
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 0.82rem;
             cursor: pointer;
             font-weight: 600;
+            min-height: 36px;
+            touch-action: manipulation;
+            transition: background 0.15s;
         }
         .clear-btn:hover { background: #b02a37; }
+        .clear-btn:active { transform: scale(0.97); }
 
         /* --- Grille des mesures (RSRP / RSRQ / SNR / Down / Up / Bande) --- */
         .mp-measures {
@@ -998,10 +1227,11 @@
             font-size: 0.72rem;
         }
         .mp-measure-cell input {
-            padding: 7px 9px;
+            padding: 9px 10px;
             border: 1px solid #d1d5db;
             border-radius: 4px;
-            font-size: 0.88rem;
+            font-size: 16px; /* Anti-zoom iOS */
+            min-height: 40px;
         }
         .mp-measure-cell input:focus {
             border-color: #2e75b6;
@@ -1393,12 +1623,17 @@
             border-radius: 8px;
             cursor: pointer;
             min-width: 200px;
+            min-height: 52px;
             transition: all 0.2s;
             letter-spacing: 0.5px;
+            touch-action: manipulation;
         }
         .mode-btn:hover {
             background: rgba(255,255,255,0.25);
             transform: translateY(-1px);
+        }
+        .mode-btn:active {
+            transform: scale(0.98);
         }
         .mode-btn.active {
             background: #fff;
@@ -1445,12 +1680,12 @@
             flex-wrap: wrap;
             align-items: center;
             gap: 10px;
-            padding: 8px 10px;
+            padding: 10px 12px;
             background: #fff;
             border: 1px solid #e6ecf2;
             border-radius: 4px;
-            margin-bottom: 6px;
-            font-size: 0.88rem;
+            margin-bottom: 8px;
+            font-size: 0.92rem;
             transition: background 0.15s, border-color 0.15s;
         }
         .cr-item:hover {
@@ -1464,7 +1699,7 @@
         .cr-item-main {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             flex: 1 1 220px;
             min-width: 0;
         }
@@ -1472,12 +1707,15 @@
             font-weight: 500;
             cursor: pointer;
             user-select: none;
+            padding: 4px 0;
+            flex: 1;
         }
         .cr-item-main input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
             flex-shrink: 0;
+            accent-color: #2e75b6;
         }
         .cr-item-extras {
             display: flex;
@@ -1489,32 +1727,41 @@
             display: none;
         }
         .cr-qty-input {
-            width: 75px;
-            padding: 5px 8px;
+            width: 80px;
+            padding: 7px 10px;
             border: 1px solid #cfdce9;
             border-radius: 4px;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            min-height: 36px;
         }
         .cr-qty-label {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             color: #555;
         }
         .cr-status-radios {
             display: flex;
             gap: 4px;
+            flex-wrap: wrap;
         }
         .cr-status-radios label {
-            padding: 4px 10px;
+            padding: 8px 12px;
             background: #f0f4f8;
             border: 1px solid #cfdce9;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 500;
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
             transition: all 0.15s;
+            touch-action: manipulation;
         }
         .cr-status-radios input[type="radio"] {
             display: none;
+        }
+        .cr-status-radios label:active {
+            transform: scale(0.97);
         }
         .cr-status-radios label:has(input:checked) {
             background: #2e75b6;
@@ -1532,17 +1779,26 @@
         .cr-loc-radios {
             display: flex;
             gap: 4px;
+            flex-wrap: wrap;
         }
         .cr-loc-radios label {
-            padding: 4px 9px;
+            padding: 8px 12px;
             background: #f8fafc;
             border: 1px solid #cfdce9;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.78rem;
+            font-size: 0.82rem;
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
+            touch-action: manipulation;
+            transition: all 0.15s;
         }
         .cr-loc-radios input[type="radio"] {
             display: none;
+        }
+        .cr-loc-radios label:active {
+            transform: scale(0.97);
         }
         .cr-loc-radios label:has(input:checked) {
             background: #6c757d;
@@ -1560,21 +1816,22 @@
         .cr-dual-metrage > div {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             background: #f0f4f8;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 4px;
         }
         .cr-dual-metrage span {
-            font-size: 0.78rem;
+            font-size: 0.82rem;
             color: #555;
         }
         .cr-dual-metrage input {
-            width: 60px;
-            padding: 4px 6px;
+            width: 64px;
+            padding: 6px 8px;
             border: 1px solid #cfdce9;
             border-radius: 3px;
-            font-size: 0.82rem;
+            font-size: 0.9rem;
+            min-height: 32px;
         }
         #compteRenduPreview {
             background: #fff;
@@ -1611,14 +1868,20 @@
             background: #5cb85c;
             color: #fff;
             border: none;
-            padding: 7px 14px;
+            padding: 10px 18px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 600;
+            min-height: 40px;
+            touch-action: manipulation;
+            transition: background 0.15s;
         }
         .cr-regen-btn:hover {
             background: #449d44;
+        }
+        .cr-regen-btn:active {
+            transform: scale(0.97);
         }
         .cr-info-banner {
             background: #fff8e6;
@@ -1767,6 +2030,7 @@
             <!-- Matrice d'interprétation officielle -->
             <div class="matrix-title">Matrice d'interprétation des résultats</div>
             <p class="matrix-caption">Grille de lecture officielle appliquée automatiquement dans le rapport.</p>
+            <div class="quality-matrix-wrapper">
             <table class="quality-matrix">
                 <thead>
                     <tr>
@@ -1808,6 +2072,7 @@
                     </tr>
                 </tbody>
             </table>
+            </div>
 
             <!-- ========== 4G ========== -->
             <div class="tech-block" data-tech="4g">
